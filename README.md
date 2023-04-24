@@ -1,0 +1,1 @@
+# steam-cloud-and-autoupdate-disable

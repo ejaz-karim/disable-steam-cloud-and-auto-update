@@ -13,7 +13,7 @@ int main() {
     getline(cin, input_directory);
     replace(input_directory.begin(), input_directory.end(), '\\', '/');
 
-    string file_directory = input_directory + "/test2.vdf";
+    string file_directory = input_directory + "/sharedconfig.vdf";
 
     ifstream if_file(file_directory);
     stringstream buffer;
@@ -21,7 +21,7 @@ int main() {
     string contents = buffer.str();
 
     regex pattern("\"CloudEnabled\"\t\t\"1\"");
-    string replacement("$1\"CloudEnabled\"\t\t\"0\"");
+    string replacement("\"CloudEnabled\"\t\t\"0\"");
     string result = regex_replace(contents, pattern, replacement);
 
     if_file.close();

@@ -32,7 +32,7 @@ int main() {
        if (line.find("apps") != string::npos) {
 		appsLineReached = true;
 	   }
-	   if (appsLineReached == true && line.find("apps") != string::npos) {
+	   if (appsLineReached == true) {
 		apps_buffer << line << endl;
 		if (line.find("}") != string::npos) {
 			appsLineReached = false;

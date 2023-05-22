@@ -23,15 +23,23 @@ int main() {
     stringstream library_buffer;
     library_buffer << library.rdbuf();
 
+
+	stringstream apps_buffer;
+
     string line;
+	bool appsLineReached = false;
     while(getline(library_buffer, line)){
-       
-
+       if (line.find("apps") != string::npos) {
+		appsLineReached = true;
+	   }
+	   if (appsLineReached == true && line.find("apps") != string::npos) {
+		apps_buffer << line << endl;
+		if (line.find("}") != string::npos) {
+			appsLineReached = false;
+		}
+	   }
     }
-    
-
-
-
+    cout << apps_buffer.str() << endl;
 
     regex pattern("\"CloudEnabled\"\t\t\"1\"");
     string replacement("\"CloudEnabled\"\t\t\"0\"");

@@ -25,13 +25,13 @@ int main() {
     
     // While loop to go through each line in the library
     while(getline(library_buffer, line)){
-       //if the "apps" line is found (not equal to no position), then turn the bool switch on
-       if (line.find("apps") != string::npos) { 
+        //if the "apps" line is found (not equal to no position), then turn the bool switch on
+        if (line.find("apps") != string::npos) { 
 		appsLineReached = true;
-	   }
+	    }
 
        // If the apps switch is on and the line has any digits then we enter the if statement
-	   if (appsLineReached == true && any_of(line.begin(), line.end(), ::isdigit)) { 
+	    if (appsLineReached == true && any_of(line.begin(), line.end(), ::isdigit)) { 
         // Remove all the spaces in the line to give it this format -> "id""number"
         line.erase(remove(line.begin(), line.end(), '\t'), line.end());
 
@@ -41,10 +41,10 @@ int main() {
             idLine += line[i];
         }
         apps_buffer << idLine << endl; // add the id to an apps buffer
-	   }
+	    }
 
-       // Assuming we are in the apps block, if the find the } closing bracket we turn the apps switch off
-       if (line.find("}") != string::npos && appsLineReached == true) {
+        // Assuming we are in the apps block, if the find the } closing bracket we turn the apps switch off
+        if (line.find("}") != string::npos && appsLineReached == true) {
         appsLineReached = false;
         }
     }

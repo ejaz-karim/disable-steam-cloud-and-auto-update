@@ -11,7 +11,7 @@ int main() {
     // C:\Program Files (x86)\Steam\userdata\<id>\7\remote is the directory in Windows
     cout << "Enter directory: ";
     getline(cin, input_directory);
-    replace(input_directory.begin(), input_directory.end(), '\\', '/'); // Windows uses / instead of \ for directories which need to be switched.
+    replace(input_directory.begin(), input_directory.end(), '\\', '/'); // Windows uses \ instead of / for directories which need to be switched.
     string file_directory = input_directory + "/sharedconfig.vdf"; // Creates directory to the main config file
 
     // Input stream class to operate on the library folders file which has all the game ids
@@ -33,11 +33,14 @@ int main() {
        // If the apps switch is on and the line has any digits then we enter the if statement
 	    if (appsLineReached == true && any_of(line.begin(), line.end(), ::isdigit)) { 
         // Remove all the spaces in the line to give it this format -> "id""number"
-        line.erase(remove(line.begin(), line.end(), '\t'), line.end());
+        // line.erase(remove(line.begin(), line.end(), '\t'), line.end());
+        remove(line.begin(), line.end(), " ");
+        remove(line.begin(), line.end(), "\t");
+
 
         // Loop through each line to extract only the game id numbers. Format = "id""number" so we want to loop from i = 1 until the first " is found
         string idLine;
-        for(int i = 1; line[i] != '"'; i++) {
+        for(int i = 0; line[i] != '"'; i++) {
             idLine += line[i];
         }
         apps_buffer << idLine << endl; // add the id to an apps buffer

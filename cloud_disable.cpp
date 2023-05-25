@@ -41,7 +41,7 @@ int main()
             // Loop through each line to extract only the game id numbers. Format = "id""number" so we want to loop from i = 1 until the first " is found
             string idLine;
             int quoteCount = 0;
-            for (int i = 0; quoteCount < 3; ++i)
+            for (int i = 0; quoteCount < 2; ++i)
             {
                 if (line[i] == '\"')
                 {
@@ -85,7 +85,7 @@ int main()
             string idLine;
             while (getline(id_buffer, idLine))
             {
-                config_buffer << "\t\t\t\t\t\"" << idLine << "\"" << endl;
+                config_buffer << "\t\t\t\t\t" << idLine << endl;
                 config_buffer << "\t\t\t\t\t{" << endl;
                 config_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
                 config_buffer << "\t\t\t\t\t}" << endl;

@@ -67,17 +67,14 @@ int main()
     }
 
     // Outputs the ids to the terminal
-    cout << id_buffer.str() << endl;
-
-
+    // cout << id_buffer.str() << endl;
 
     ifstream sharedconfig_if(sharedconfig_file); // Input file stream created for the main config
-    stringstream config_buffer;       // Stringstream buffer which we will use to replace the original config
+    stringstream sharedconfig_buffer;                  // Stringstream buffer which we will use to replace the original config
 
-    line = "";
     bool appsBlockReached = false;
 
-    // While loop to go through each line from the main config and add it to the config_buffer accordingly
+    // While loop to go through each line from the main config and add it to the sharedconfig_buffer accordingly
     while (getline(sharedconfig_if, line))
     {
         // If apps block has been reached
@@ -87,17 +84,17 @@ int main()
             // Add all the lines from the original config in the same structure and format without the things within
             // the { } block. This is to ensure that we dont have repeats of information and we are only adding the id of
             // games found from the library folder we entered earlier.
-            config_buffer << line << endl;
-            config_buffer << "\t\t\t\t{" << endl;
+            sharedconfig_buffer << line << endl;
+            sharedconfig_buffer << "\t\t\t\t{" << endl;
 
             // By sticking to the format of the config, we make all ids CloudEnabled = 0
-            string idLine;
-            while (getline(id_buffer, idLine))
+            string sharedconfig_idLine;
+            while (getline(id_buffer, sharedconfig_idLine))
             {
-                config_buffer << "\t\t\t\t\t" << idLine << endl;
-                config_buffer << "\t\t\t\t\t{" << endl;
-                config_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
-                config_buffer << "\t\t\t\t\t}" << endl;
+                sharedconfig_buffer << "\t\t\t\t\t" << sharedconfig_idLine << endl;
+                sharedconfig_buffer << "\t\t\t\t\t{" << endl;
+                sharedconfig_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
+                sharedconfig_buffer << "\t\t\t\t\t}" << endl;
             }
         }
 
@@ -105,22 +102,22 @@ int main()
         else if (appsBlockReached && line == "\t\t\t\t}")
         {
             appsBlockReached = false;
-            config_buffer << line << endl;
+            sharedconfig_buffer << line << endl;
         }
 
         // if we are not inside the apps block we want to add all the lines to make sure everything outside of what we are editing is added
         else if (appsBlockReached == false)
         {
-            config_buffer << line << endl;
+            sharedconfig_buffer << line << endl;
         }
     }
 
     // Output file stream created so that we can add the new config we have created and save it replacing the old config
     ofstream sharedconfig_of(sharedconfig_file);
-    sharedconfig_of << config_buffer.str();
+    sharedconfig_of << sharedconfig_buffer.str();
 
     // Shows us the state of the config file after running this script
-    cout << config_buffer.str() << endl;
+    // cout << sharedconfig_buffer.str() << endl;
 
     library_if.close();
     sharedconfig_if.close();

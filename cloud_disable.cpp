@@ -30,39 +30,47 @@ int main()
     string line;                  // String used to temporarily store each line of the library in the while loop
     bool appsLineReached = false; // Switch which tells us when the line where "apps" is found has been reached
 
-    // While loop to go through each line in the library
-    while (getline(library_buffer, line))
+    if (library_buffer.str().find("apps") == string::npos)
     {
-
-        // if the "apps" line is found (not equal to no position), then turn the bool switch on
-        if (line.find("apps") != string::npos)
+        cout << "\"apps\" was not found in /libraryfolders.vdf, this can occur if you recently installed steam" << endl;
+        return 0;
+    }
+    else
+    {
+        // While loop to go through each line in the library
+        while (getline(library_buffer, line))
         {
-            appsLineReached = true;
-        }
 
-        // If the apps switch is on and the line has any digits then we enter the if statement
-        if (appsLineReached == true && any_of(line.begin(), line.end(), ::isdigit))
-        {
-            // Remove all the spaces in the line to give it this format -> "id""number"
-            line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
-            // Loop through each line to extract only the game id numbers. Format = "id""number" so we want to loop from i = 1 until the first " is found
-            string idLine;
-            int quoteCount = 0;
-            for (int i = 0; quoteCount < 2; ++i)
+            // if the "apps" line is found (not equal to no position), then turn the bool switch on
+            if (line.find("apps") != string::npos)
             {
-                if (line[i] == '\"')
-                {
-                    ++quoteCount;
-                }
-                idLine += line[i];
+                appsLineReached = true;
             }
-            id_buffer << idLine << endl; // add the id to an apps buffer
-        }
 
-        // Assuming we are in the apps block, if the find the } closing bracket we turn the apps switch off
-        if (line.find("}") != string::npos && appsLineReached == true)
-        {
-            appsLineReached = false;
+            // If the apps switch is on and the line has any digits then we enter the if statement
+            if (appsLineReached == true && any_of(line.begin(), line.end(), ::isdigit))
+            {
+                // Remove all the spaces in the line to give it this format -> "id""number"
+                line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+                // Loop through each line to extract only the game id numbers. Format = "id""number" so we want to loop from i = 1 until the first " is found
+                string idLine;
+                int quoteCount = 0;
+                for (int i = 0; quoteCount < 2; ++i)
+                {
+                    if (line[i] == '\"')
+                    {
+                        ++quoteCount;
+                    }
+                    idLine += line[i];
+                }
+                id_buffer << idLine << endl; // add the id to an apps buffer
+            }
+
+            // Assuming we are in the apps block, if the find the } closing bracket we turn the apps switch off
+            if (line.find("}") != string::npos && appsLineReached == true)
+            {
+                appsLineReached = false;
+            }
         }
     }
 
@@ -70,45 +78,53 @@ int main()
     // cout << id_buffer.str() << endl;
 
     ifstream sharedconfig_if(sharedconfig_file); // Input file stream created for the main config
-    stringstream sharedconfig_buffer;                  // Stringstream buffer which we will use to replace the original config
+    stringstream sharedconfig_buffer;            // Stringstream buffer which we will use to replace the original config
 
     bool appsBlockReached = false;
 
-    // While loop to go through each line from the main config and add it to the sharedconfig_buffer accordingly
-    while (getline(sharedconfig_if, line))
+    if (sharedconfig_buffer.str().find("apps") == string::npos)
     {
-        // If apps block has been reached
-        if (line.find("apps") != string::npos)
+        cout << "\"apps\" was not found in /sharedconfig.vdf, this can occur if you recently installed steam" << endl;
+        return 0;
+    }
+    else
+    {
+        // While loop to go through each line from the main config and add it to the sharedconfig_buffer accordingly
+        while (getline(sharedconfig_if, line))
         {
-            appsBlockReached = true;
-            // Add all the lines from the original config in the same structure and format without the things within
-            // the { } block. This is to ensure that we dont have repeats of information and we are only adding the id of
-            // games found from the library folder we entered earlier.
-            sharedconfig_buffer << line << endl;
-            sharedconfig_buffer << "\t\t\t\t{" << endl;
-
-            // By sticking to the format of the config, we make all ids CloudEnabled = 0
-            string sharedconfig_idLine;
-            while (getline(id_buffer, sharedconfig_idLine))
+            // If apps block has been reached
+            if (line.find("apps") != string::npos)
             {
-                sharedconfig_buffer << "\t\t\t\t\t" << sharedconfig_idLine << endl;
-                sharedconfig_buffer << "\t\t\t\t\t{" << endl;
-                sharedconfig_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
-                sharedconfig_buffer << "\t\t\t\t\t}" << endl;
+                appsBlockReached = true;
+                // Add all the lines from the original config in the same structure and format without the things within
+                // the { } block. This is to ensure that we dont have repeats of information and we are only adding the id of
+                // games found from the library folder we entered earlier.
+                sharedconfig_buffer << line << endl;
+                sharedconfig_buffer << "\t\t\t\t{" << endl;
+
+                // By sticking to the format of the config, we make all ids CloudEnabled = 0
+                string sharedconfig_idLine;
+                while (getline(id_buffer, sharedconfig_idLine))
+                {
+                    sharedconfig_buffer << "\t\t\t\t\t" << sharedconfig_idLine << endl;
+                    sharedconfig_buffer << "\t\t\t\t\t{" << endl;
+                    sharedconfig_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
+                    sharedconfig_buffer << "\t\t\t\t\t}" << endl;
+                }
             }
-        }
 
-        // If we reached the closing bracket line and we are still within the apps block, turn off the app block switch and add this line
-        else if (appsBlockReached && line == "\t\t\t\t}")
-        {
-            appsBlockReached = false;
-            sharedconfig_buffer << line << endl;
-        }
+            // If we reached the closing bracket line and we are still within the apps block, turn off the app block switch and add this line
+            else if (appsBlockReached && line == "\t\t\t\t}")
+            {
+                appsBlockReached = false;
+                sharedconfig_buffer << line << endl;
+            }
 
-        // if we are not inside the apps block we want to add all the lines to make sure everything outside of what we are editing is added
-        else if (appsBlockReached == false)
-        {
-            sharedconfig_buffer << line << endl;
+            // if we are not inside the apps block we want to add all the lines to make sure everything outside of what we are editing is added
+            else if (appsBlockReached == false)
+            {
+                sharedconfig_buffer << line << endl;
+            }
         }
     }
 
@@ -122,5 +138,6 @@ int main()
     library_if.close();
     sharedconfig_if.close();
     sharedconfig_of.close();
+    cout << "Success." << endl;
     return 0;
 }

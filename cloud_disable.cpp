@@ -33,6 +33,9 @@ int main()
     if (library_buffer.str().find("apps") == string::npos)
     {
         cout << "\"apps\" was not found in /libraryfolders.vdf, this can occur if you recently installed steam" << endl;
+        cout << "Press ENTER to exit..." << endl;
+        getchar();
+        library_if.close();
         return 0;
     }
     else
@@ -85,6 +88,10 @@ int main()
     if (sharedconfig_buffer.str().find("apps") == string::npos)
     {
         cout << "\"apps\" was not found in /sharedconfig.vdf, this can occur if you recently installed steam" << endl;
+        cout << "Press ENTER to exit..." << endl;
+        getchar();
+        library_if.close();
+        sharedconfig_if.close();
         return 0;
     }
     else
@@ -139,5 +146,7 @@ int main()
     sharedconfig_if.close();
     sharedconfig_of.close();
     cout << "Success." << endl;
+    cout << "Press ENTER to exit..." << endl;
+    getchar();
     return 0;
 }

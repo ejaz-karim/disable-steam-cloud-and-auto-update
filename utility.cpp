@@ -2,17 +2,31 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <filesystem>
 #include "utility.hpp"
 
 using namespace std;
 
 string getDirectory(const string &prompt)
 {
-    string directory;
-    cout << prompt;
-    getline(cin, directory);
-    replace(directory.begin(), directory.end(), '\\', '/');
-    return directory;
+    bool restart = true;
+    while (restart)
+    {
+        string directory;
+        cout << prompt;
+        getline(cin, directory);
+        if (filesystem::exists(directory))
+        {
+            restart = false;
+            replace(directory.begin(), directory.end(), '\\', '/');
+            return directory;
+        }
+        else
+        {
+            cout << "Directory does not exist. Please try again." << endl;
+        }
+    }
+    return ""; // Default return statement, will not be reached
 }
 
 string readFileContents(const string &filePath)

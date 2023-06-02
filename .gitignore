@@ -1,12 +1,10 @@
-# Created by https://www.toptal.com/developers/gitignore/api/c++,visualstudiocode
-# Edit at https://www.toptal.com/developers/gitignore?templates=c++,visualstudiocode
-
 ### C++ ###
 # Prerequisites
 *.d
 
 # Steam files
 *.vdf
+*.acf
 
 # Compiled Object files
 *.slo
@@ -56,5 +54,3 @@
 # Ignore all local history of files
 .history
 .ionide
-
-# End of https://www.toptal.com/developers/gitignore/api/c++,visualstudiocode

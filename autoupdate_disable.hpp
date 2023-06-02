@@ -8,6 +8,6 @@
 
 bool checkUpdateBehaviour(const std::string &buffer);
 std::string replaceUpdateBehaviour();
-void iterateSteamApps(const std::string &steamAppsDirectory);
+bool iterateSteamApps(const std::string &steamAppsDirectory);
 
 #endif // AUTOUPDATE_DISABLE_HPP

@@ -15,10 +15,10 @@ bool checkUpdateBehaviour(const string &buffer)
 
 string replaceUpdateBehaviour()
 {
-    return "\t\"AutoUpdateBehavior\"\t\t\"0\"";
+    return "\t\"AutoUpdateBehavior\"\t\t\"1\"";
 }
 
-void iterateSteamApps(const string &steamAppsDirectory)
+bool iterateSteamApps(const string &steamAppsDirectory)
 {
     for (const auto &entry : fs::directory_iterator(steamAppsDirectory))
     {
@@ -51,4 +51,5 @@ void iterateSteamApps(const string &steamAppsDirectory)
             file_of.close();
         }
     }
+    return true;
 }

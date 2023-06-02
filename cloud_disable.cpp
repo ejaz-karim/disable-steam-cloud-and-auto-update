@@ -3,7 +3,6 @@
 #include <sstream>
 #include <algorithm>
 #include "cloud_disable.hpp"
-#include "utility.hpp"
 
 using namespace std;
 

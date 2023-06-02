@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <filesystem>
 #include "autoupdate_disable.hpp"
-#include "utility.hpp"
 
 using namespace std;
 

@@ -5,6 +5,9 @@
 # Prerequisites
 *.d
 
+# Steam files
+*.vdf
+
 # Compiled Object files
 *.slo
 *.lo

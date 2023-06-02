@@ -31,6 +31,9 @@ int main()
             }
         }
 
+        string steamapps_directory = getDirectory("Enter directory for steamapps: ");
+        iterateSteamApps(steamapps_directory);
+
         cout << "Press ENTER to exit..." << endl;
         getchar();
         return 0;

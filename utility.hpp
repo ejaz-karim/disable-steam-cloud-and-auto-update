@@ -2,6 +2,10 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#ifndef UTILITY_HPP
+#define UTILITY_HPP
 
-using namespace std;
+std::string getDirectory(const std::string &prompt);
+std::string readFileContents(const std::string &filePath);
 
+#endif // UTILITY_HPP

@@ -1,6 +1,12 @@
-
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
 #include "cloud_disable.hpp"
+#include "autoupdate_disable.hpp"
+#include "utility.hpp"
 
+using namespace std;
 
 int main()
 {

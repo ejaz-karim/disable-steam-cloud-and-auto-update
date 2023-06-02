@@ -23,7 +23,7 @@ string getDirectory(const string &prompt)
         }
         else
         {
-            cout << "Directory does not exist. Please try again." << endl;
+            cout << ">The directory you entered doesn't exist. Please try again." << endl;
         }
     }
     return ""; // Default return statement, will not be reached

@@ -15,16 +15,18 @@ int main()
         bool restart = true;
         while (restart)
         {
-            cout << "Enter 1 for Cloud disable, 2 for Autoupdate disable" << endl;
+            cout << ">Enter 1 to disable Steam Cloud" << endl;
+            cout << ">Enter 2 to disable Autoupdates" << endl;
+            cout << ">Select your option: " << endl;
             string input;
             getline(cin, input);
             if (input == "1")
             {
                 restart = false;
-                string sharedconfig_directory = getDirectory("Enter directory for sharedconfig.vdf: ");
+                string sharedconfig_directory = getDirectory(">Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
-                string library_directory = getDirectory("Enter directory for libraryfolders.vdf: ");
+                string library_directory = getDirectory(">Enter directory for libraryfolders.vdf:\n");
                 string library_file = library_directory + "/libraryfolders.vdf";
 
                 string sharedconfig_content = readFileContents(sharedconfig_file);
@@ -43,27 +45,27 @@ int main()
             else if (input == "2")
             {
                 restart = false;
-                string steamapps_directory = getDirectory("Enter directory for steamapps: ");
+                string steamapps_directory = getDirectory(">Enter directory for steamapps:\n");
                 bool iterateVar = iterateSteamApps(steamapps_directory);
 
                 if (iterateVar)
                 {
-                    cout << "Success." << endl;
+                    cout << ">Success." << endl;
                 }
             }
             else
             {
-                cout << "Invalid input." << endl;
+                cout << ">Invalid input." << endl;
             }
         }
 
-        cout << "Press ENTER to exit..." << endl;
+        cout << ">Press ENTER to exit..." << endl;
         getchar();
         return 0;
     }
     catch (const exception &e)
     {
-        cerr << "Error: " << e.what() << endl;
+        cerr << ">Error: " << e.what() << endl;
         return 1;
     }
 }

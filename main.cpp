@@ -5,6 +5,7 @@
 #include "cloud_disable.hpp"
 #include "autoupdate_disable.hpp"
 #include "utility.hpp"
+#include "api.hpp"
 
 using namespace std;
 
@@ -34,11 +35,15 @@ int main()
 
                 string game_ids = extractGameIds(library_content);
 
+                stringstream test = removeQuotes(game_ids);
+                // cout << test << endl;
+
+
                 if (!game_ids.empty())
                 {
                     if (replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
                     {
-                        cout << "Success." << endl;
+                        cout << ">Success." << endl;
                     }
                 }
             }

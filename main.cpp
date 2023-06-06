@@ -37,7 +37,8 @@ int main()
 
                 stringstream test = removeQuotes(game_ids);
                 // cout << test << endl;
-
+                stringstream appIdsNoQuotes = removeQuotes(game_ids);
+                apiRequest(appIdsNoQuotes);
 
                 if (!game_ids.empty())
                 {
@@ -63,7 +64,6 @@ int main()
                 cout << ">Invalid input." << endl;
             }
         }
-
         cout << ">Press ENTER to exit..." << endl;
         getchar();
         return 0;

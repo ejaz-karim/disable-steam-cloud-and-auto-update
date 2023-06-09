@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "cloud_disable.hpp"
+#include "../include/steam-cloud-and-autoupdate-disable/cloud_disable.hpp"
 
 using namespace std;
 

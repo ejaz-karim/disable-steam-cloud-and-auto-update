@@ -36,9 +36,8 @@ int main()
                 string game_ids = extractGameIds(library_content);
 
                 stringstream test = removeQuotes(game_ids);
-                // cout << test << endl;
                 stringstream appIdsNoQuotes = removeQuotes(game_ids);
-                apiRequest(appIdsNoQuotes);
+                // apiRequest(appIdsNoQuotes);
 
                 if (!game_ids.empty())
                 {

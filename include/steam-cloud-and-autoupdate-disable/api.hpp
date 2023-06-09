@@ -14,8 +14,8 @@
 #define API_HPP
 
 std::stringstream removeQuotes(const std::string &game_ids);
-void apiRequest(std::stringstream &appIds);
-std::string getJSONBody(const std::string url);
+// void apiRequest(std::stringstream &appIds);
+// std::string getJSONBody(const std::string url);
 // std::string getGameName(std::string jsonBody);
 
 #endif // API_HPP

@@ -29,34 +29,34 @@ stringstream removeQuotes(const string &game_ids){
     return noQuotes;
 }
 
-string getJSONBody(const string url) {
-    // Creating the client session
-    // Poco::URI uri(url);
-    // Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
+// string getJSONBody(const string url) {
+//     Creating the client session
+//     Poco::URI uri(url);
+//     Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
 
-    // // Create the request
-    // Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET uri.getpath(), Poco::Net::HTTPRequest::HTTP_1_1);
-    // session.sendRequest(request);
+//     // Create the request
+//     Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET uri.getpath(), Poco::Net::HTTPRequest::HTTP_1_1);
+//     session.sendRequest(request);
 
-    // // Get the response
-    // Poco::Net::HTTPResponse response;
-    // std::istream& responseBody = session.receiveResponse(response);
+//     // Get the response
+//     Poco::Net::HTTPResponse response;
+//     std::istream& responseBody = session.receiveResponse(response);
 
-    // // Copy the response into a string
-    // std::string jsonBody;
-    // Poco::StreamCopier::copyToString(responseBody, jsonBody);
-    // return jsonBody;
-}
+//     // Copy the response into a string
+//     std::string jsonBody;
+//     Poco::StreamCopier::copyToString(responseBody, jsonBody);
+//     return jsonBody;
+// }
 
 // string getGameName(string jsonBody) {
     
 // }
 
-void apiRequest(stringstream &appIds){
-    string line;
-    while(getline(appIds, line)){
-        string temp = "";
-        temp = url + line;
-        cout << getJSONBody(temp) << endl;
-    }
-}
+// void apiRequest(stringstream &appIds){
+//     string line;
+//     while(getline(appIds, line)){
+//         string temp = "";
+//         temp = url + line;
+//         cout << getJSONBody(temp) << endl;
+//     }
+// }

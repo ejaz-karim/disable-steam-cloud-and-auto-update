@@ -3,7 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
-#include "../include/steam-cloud-and-autoupdate-disable/autoupdate_disable.hpp"
+#include "include/disable-steam-cloud-and-auto-update/autoupdate_disable.hpp"
 
 using namespace std;
 namespace fs = std::filesystem;

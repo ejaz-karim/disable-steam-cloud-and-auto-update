@@ -1,4 +1,4 @@
-# Steam Cloud and Auto-Update Disable
+# Disable Steam Cloud and Auto-update
 
 This program allows you to manage the cloud synchronization and auto-update settings for games in your Steam library. By running this program, you can disable cloud storage and auto-updates for all the games you have downloaded on Steam. 
 

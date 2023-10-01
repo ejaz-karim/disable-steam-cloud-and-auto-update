@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
-#include "include/disable-steam-cloud-and-auto-update/api.hpp"
+#include "../include/disable-steam-cloud-and-auto-update/api.hpp"
 // #include <Poco/Net/HTTPClientSession.h>
 // #include <Poco/Net/HTTPRequest.h>
 // #include <Poco/Net/HTTPResponse.h>

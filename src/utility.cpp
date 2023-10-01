@@ -3,7 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
-#include "include/disable-steam-cloud-and-auto-update/utility.hpp"
+#include "../include/disable-steam-cloud-and-auto-update/utility.hpp"
 
 using namespace std;
 

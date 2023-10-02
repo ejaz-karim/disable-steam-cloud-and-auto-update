@@ -17,7 +17,7 @@ int main()
         while (restart)
         {
             cout << ">Enter 1 to disable Steam Cloud" << endl;
-            cout << ">Enter 2 to disable Autoupdates" << endl;
+            cout << ">Enter 2 to disable Auto-updates" << endl;
             cout << ">Select your option: " << endl;
             string input;
             getline(cin, input);

@@ -4,6 +4,7 @@ target("disable-steam-cloud-and-auto-update")
     set_kind("binary")
     add_headerfiles("include/disable-steam-cloud-and-auto-update/*.hpp")
     add_files("src/*.cpp")
+    add_requires("crow")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

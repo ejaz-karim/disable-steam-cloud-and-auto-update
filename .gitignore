@@ -2,6 +2,9 @@
 *.vdf
 *.acf
 
+# Build folder
+build/
+
 # Created by https://www.toptal.com/developers/gitignore/api/cmake,conan,c++,visualstudiocode,windows,linux,macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=cmake,conan,c++,visualstudiocode,windows,linux,macos
 

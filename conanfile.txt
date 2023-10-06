@@ -1,0 +1,7 @@
+[requires]
+cpr/1.10.4
+[generators]
+CMakeDeps
+CMakeToolchain
+[layout]
+cmake_layout

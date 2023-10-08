@@ -4,7 +4,8 @@ project(disable-steam-cloud-and-auto-update VERSION 0.1.0 LANGUAGES C CXX)
 include(CTest)
 enable_testing()
 
-find_package(Drogon CONFIG REQUIRED)
+
+find_package(Drogon)
 
 include_directories(include)
 set(SOURCES 

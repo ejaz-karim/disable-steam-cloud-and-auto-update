@@ -1,7 +1,0 @@
-[requires]
-drogon/1.8.6
-[generators]
-CMakeDeps
-CMakeToolchain
-[layout]
-cmake_layout

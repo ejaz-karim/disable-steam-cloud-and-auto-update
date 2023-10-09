@@ -6,8 +6,6 @@
 #include <string>
 #include "disable-steam-cloud-and-auto-update/api.hpp"
 
-#include <drogon/drogon.h>
-
 using namespace std;
 
 string url = "https://store.steampowered.com/api/appdetails?appids=";

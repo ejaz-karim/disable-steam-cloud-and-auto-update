@@ -4,21 +4,28 @@ project(disable-steam-cloud-and-auto-update VERSION 0.1.0 LANGUAGES C CXX)
 include(CTest)
 enable_testing()
 
+link_directories(
+  C:/vcpkg/installed/x64-windows/lib/
+)
 
-find_package(Drogon)
+include_directories(
+  include
+  C:/vcpkg/installed/x64-windows/include/
 
-include_directories(include)
+)
 set(SOURCES 
-    src/main.cpp
-    src/api.cpp 
-    src/autoupdate_disable.cpp
-    src/cloud_disable.cpp
-    src/utility.cpp
+  src/main.cpp
+  src/api.cpp 
+  src/autoupdate_disable.cpp
+  src/cloud_disable.cpp
+  src/utility.cpp
 )
 
 add_executable(disable-steam-cloud-and-auto-update ${SOURCES})
 
-target_link_libraries(disable-steam-cloud-and-auto-update PRIVATE Drogon::Drogon)
+TARGET_LINK_LIBRARIES(disable-steam-cloud-and-auto-update
+  drogon
+)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

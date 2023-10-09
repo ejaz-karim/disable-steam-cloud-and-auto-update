@@ -1,7 +1,0 @@
-{
-    "name": "disable-steam-cloud-and-auto-update",
-    "version": "1.0.0",
-    "dependencies": [
-      "drogon"
-    ]
-  }

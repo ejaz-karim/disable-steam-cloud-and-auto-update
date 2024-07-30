@@ -43,7 +43,7 @@ int main()
                 {
                     if (replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
                     {
-                        cout << ">Success." << endl;
+                        cout << ">Success" << endl;
                     }
                 }
             }
@@ -55,12 +55,12 @@ int main()
 
                 if (iterateVar)
                 {
-                    cout << ">Success." << endl;
+                    cout << ">Success" << endl;
                 }
             }
             else
             {
-                cout << ">Invalid input." << endl;
+                cout << ">Invalid input" << endl;
             }
         }
         cout << ">Press ENTER to exit..." << endl;

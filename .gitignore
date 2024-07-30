@@ -1,12 +1,10 @@
-# Steam files
+### Steam ###
+# Valve Data File and Steam Application Cache File
 *.vdf
 *.acf
 
-# Build folder
-build/
-
-# Created by https://www.toptal.com/developers/gitignore/api/cmake,conan,c++,visualstudiocode,windows,linux,macos
-# Edit at https://www.toptal.com/developers/gitignore?templates=cmake,conan,c++,visualstudiocode,windows,linux,macos
+# Created by https://www.toptal.com/developers/gitignore/api/c++,xmake,visualstudiocode,windows,linux
+# Edit at https://www.toptal.com/developers/gitignore?templates=c++,xmake,visualstudiocode,windows,linux
 
 ### C++ ###
 # Prerequisites
@@ -42,45 +40,6 @@ build/
 *.out
 *.app
 
-### CMake ###
-CMakeLists.txt.user
-CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-_deps
-
-### CMake Patch ###
-# External projects
-*-prefix/
-
-### Conan ###
-# Conan build information
-conan.lock
-conanbuildinfo.*
-conaninfo.txt
-graph_info.json
-
-## Various built-in generators
-# cmake_find_package generator https://docs.conan.io/en/latest/reference/generators/cmake_find_package.html
-Find*.cmake
-
-# cmake_paths generator https://docs.conan.io/en/1.4/integrations/cmake/cmake_paths_generator.html
-conan_paths.*
-
-# Environment activation scripts produced by https://docs.conan.io/en/latest/mastering/virtualenv.html#virtualenv-generator
-activate_run.ps1
-activate_run.sh
-deactivate_run.ps1
-deactivate_run.sh
-environment_run.ps1.env
-environment_run.sh.env
-
 ### Linux ###
 *~
 
@@ -96,46 +55,13 @@ environment_run.sh.env
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
 
-### macOS ###
-# General
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Icon must end with two \r
-Icon
-
-
-# Thumbnails
-._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-### macOS Patch ###
-# iCloud generated files
-*.icloud
-
 ### VisualStudioCode ###
 .vscode/*
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
-# !.vscode/*.code-snippets
+#!.vscode/settings.json
+#!.vscode/tasks.json
+#!.vscode/launch.json
+#!.vscode/extensions.json
+#!.vscode/*.code-snippets
 
 # Local History for Visual Studio Code
 .history/
@@ -174,4 +100,9 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.toptal.com/developers/gitignore/api/cmake,conan,c++,visualstudiocode,windows,linux,macos
+### xmake ###
+# Xmake cache
+.xmake/
+build/
+
+# End of https://www.toptal.com/developers/gitignore/api/c++,xmake,visualstudiocode,windows,linux

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
-#include "api.hpp"
+#include "disable-steam-cloud-and-auto-update/api.hpp"
 
 using namespace std;
 

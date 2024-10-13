@@ -60,7 +60,7 @@ int main()
             }
             else
             {
-                cout << ">Invalid input" << endl;
+                cout << "\n>Invalid input\n" << endl;
             }
         }
         cout << ">Press ENTER to exit..." << endl;

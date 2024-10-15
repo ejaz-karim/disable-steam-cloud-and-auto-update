@@ -4,6 +4,6 @@ target("disable-steam-cloud-and-auto-update")
     add_headerfiles("include/**.hpp")
     add_files("src/**.cpp")
 
-    if is_plat("windows") and is_tool("gcc") then
-        add_ldflags("-static", "-static-libgcc", "-static-libstdc++", {force = true})
+    if is_plat("mingw") then
+        add_ldflags("-static-libgcc", "-static-libstdc++", "-static")
     end

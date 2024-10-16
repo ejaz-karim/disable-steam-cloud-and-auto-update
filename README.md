@@ -25,9 +25,6 @@ Follow these steps to use the "steam-cloud-and-autoupdate-disable" program:
 
 **Note:** It is important to keep in mind that modifying configuration files can have unintended consequences. Use this program at your own risk, and make sure to backup your files before running it.
 
-## About
-
-The "steam-cloud-and-autoupdate-disable" program is a command-line tool written in C++. It utilizes the Steam configuration files to manage the cloud synchronization and auto-update settings for games. By disabling these features, you can have more control over the game data storage and prevent automatic updates for your games.
 
 ## Troubleshooting
 

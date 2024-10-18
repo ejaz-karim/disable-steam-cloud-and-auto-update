@@ -24,6 +24,9 @@ int main()
             if (input == "1")
             {
                 restart = false;
+
+                string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
+
                 string sharedconfig_directory = getDirectory(">Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
@@ -73,3 +76,4 @@ int main()
         return 1;
     }
 }
+

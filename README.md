@@ -25,7 +25,6 @@ Follow these steps to use the "steam-cloud-and-autoupdate-disable" program:
 
 **Note:** It is important to keep in mind that modifying configuration files can have unintended consequences. Use this program at your own risk, and make sure to backup your files before running it.
 
-
 ## Troubleshooting
 
 If you encounter any issues or have questions regarding the "steam-cloud-and-autoupdate-disable" program, please refer to the following:

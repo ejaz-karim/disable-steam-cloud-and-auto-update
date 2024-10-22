@@ -10,17 +10,17 @@ namespace fs = std::filesystem;
 
 AutoUpdateDisabler::AutoUpdateDisabler() {}
 
-bool checkUpdateBehaviour(const string &buffer)
+bool AutoUpdateDisabler::checkUpdateBehaviour(const string &buffer)
 {
     return buffer.find("AutoUpdateBehavior") != string::npos;
 }
 
-string replaceUpdateBehaviour()
+string AutoUpdateDisabler::replaceUpdateBehaviour()
 {
     return "\t\"AutoUpdateBehavior\"\t\t\"1\"";
 }
 
-bool iterateSteamApps(const string &steamAppsDirectory)
+bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
 {
     for (const auto &entry : fs::directory_iterator(steamAppsDirectory))
     {

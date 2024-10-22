@@ -25,24 +25,28 @@ int main()
             {
                 restart = false;
 
-                string sharedconfig_directory = getDirectory(">Enter directory for sharedconfig.vdf:\n");
+                FileUtility fileUtility;
+                CloudDisabler cloudDisabler;
+                Api api;
+
+                string sharedconfig_directory = fileUtility.getDirectory(">Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
-                string library_directory = getDirectory(">Enter directory for libraryfolders.vdf:\n");
+                string library_directory = fileUtility.getDirectory(">Enter directory for libraryfolders.vdf:\n");
                 string library_file = library_directory + "/libraryfolders.vdf";
 
-                string sharedconfig_content = readFileContents(sharedconfig_file);
-                string library_content = readFileContents(library_file);
+                string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
+                string library_content = fileUtility.readFileContents(library_file);
 
-                string game_ids = extractGameIds(library_content);
+                string game_ids = cloudDisabler.extractGameIds(library_content);
 
-                stringstream test = removeQuotes(game_ids);
-                stringstream appIdsNoQuotes = removeQuotes(game_ids);
+                stringstream test = api.removeQuotes(game_ids);
+                stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
                 // apiRequest(appIdsNoQuotes);
 
                 if (!game_ids.empty())
                 {
-                    if (replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
+                    if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
                     {
                         cout << ">Success" << endl;
                     }
@@ -51,12 +55,14 @@ int main()
             else if (input == "2")
             {
                 restart = false;
+
+                FileUtility fileUtility;
+                AutoUpdateDisabler autoUpdateDisabler;
                 
                 string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
 
-
-                string steamapps_directory = getDirectory(">Enter directory for steamapps:\n");
-                bool iterateVar = iterateSteamApps(steamapps_directory);
+                string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
+                bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
 
                 if (iterateVar)
                 {

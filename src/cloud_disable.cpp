@@ -6,12 +6,14 @@
 
 using namespace std;
 
-bool checkAppsBlock(const string &buffer)
+CloudDisabler::CloudDisabler() {}
+
+bool CloudDisabler::checkAppsBlock(const string &buffer)
 {
     return buffer.find("apps") != string::npos;
 }
 
-string extractGameIds(const string &libraryBuffer)
+string CloudDisabler::extractGameIds(const string &libraryBuffer)
 {
     stringstream id_buffer;
     string line;
@@ -56,7 +58,7 @@ string extractGameIds(const string &libraryBuffer)
     return id_buffer.str();
 }
 
-bool replaceAppsBlock(const string &sharedConfigFile, const string &sharedConfigBuffer, const string &idBuffer)
+bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const string &sharedConfigBuffer, const string &idBuffer)
 {
     ifstream sharedconfig_if(sharedConfigFile);
     if (!sharedconfig_if)

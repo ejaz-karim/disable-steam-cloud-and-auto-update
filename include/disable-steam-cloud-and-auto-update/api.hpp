@@ -6,4 +6,8 @@
 #include <filesystem>
 #include <string>
 
-std::stringstream removeQuotes(const std::string &game_ids);
+class Api
+{
+public:
+    std::stringstream removeQuotes(const std::string &game_ids);
+};

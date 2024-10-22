@@ -25,8 +25,6 @@ int main()
             {
                 restart = false;
 
-                string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
-
                 string sharedconfig_directory = getDirectory(">Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
@@ -53,6 +51,10 @@ int main()
             else if (input == "2")
             {
                 restart = false;
+                
+                string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
+
+
                 string steamapps_directory = getDirectory(">Enter directory for steamapps:\n");
                 bool iterateVar = iterateSteamApps(steamapps_directory);
 

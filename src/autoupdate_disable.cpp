@@ -8,6 +8,8 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+AutoUpdateDisabler::AutoUpdateDisabler() {}
+
 bool checkUpdateBehaviour(const string &buffer)
 {
     return buffer.find("AutoUpdateBehavior") != string::npos;

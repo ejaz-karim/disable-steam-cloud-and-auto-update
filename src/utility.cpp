@@ -7,7 +7,9 @@
 
 using namespace std;
 
-string getDirectory(const string &prompt)
+FileUtility::FileUtility() {}
+
+string FileUtility::getDirectory(const string &prompt)
 {
     bool restart = true;
     while (restart)
@@ -29,7 +31,7 @@ string getDirectory(const string &prompt)
     return ""; // Default return statement, will not be reached
 }
 
-string readFileContents(const string &filePath)
+string FileUtility::readFileContents(const string &filePath)
 {
     ifstream file(filePath);
     if (!file)

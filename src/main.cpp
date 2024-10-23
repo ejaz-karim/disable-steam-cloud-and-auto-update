@@ -29,10 +29,10 @@ int main()
                 CloudDisabler cloudDisabler;
                 Api api;
 
-                string sharedconfig_directory = fileUtility.getDirectory(">Enter directory for sharedconfig.vdf:\n");
+                string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
-                string library_directory = fileUtility.getDirectory(">Enter directory for libraryfolders.vdf:\n");
+                string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\n");
                 string library_file = library_directory + "/libraryfolders.vdf";
 
                 string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);

@@ -9,5 +9,6 @@
 class Api
 {
 public:
+    Api();
     std::stringstream removeQuotes(const std::string &game_ids);
 };

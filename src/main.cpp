@@ -58,21 +58,26 @@ int main()
 
                 FileUtility fileUtility;
                 AutoUpdateDisabler autoUpdateDisabler;
-                
+
                 string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
-
-
-                string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
-                bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
-
-                if (iterateVar)
+                if (autoUpdateDisabler.checkPathExists(defaultWinPath))
                 {
-                    cout << ">Success" << endl;
+                    // iterate through steam id folders, then for each folder use autoUpdateDisabler.iterateSteamApps
+                }
+                else
+                {
+                    string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
+                    bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
+                    if (iterateVar)
+                    {
+                        cout << ">Success" << endl;
+                    }
                 }
             }
             else
             {
-                cout << "\n>Invalid input\n" << endl;
+                cout << "\n>Invalid input\n"
+                     << endl;
             }
         }
         cout << ">Press ENTER to exit..." << endl;

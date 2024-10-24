@@ -61,6 +61,7 @@ int main()
                 
                 string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
 
+
                 string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
                 bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
 

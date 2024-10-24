@@ -15,6 +15,10 @@ bool AutoUpdateDisabler::checkUpdateBehaviour(const string &buffer)
     return buffer.find("AutoUpdateBehavior") != string::npos;
 }
 
+bool AutoUpdateDisabler::checkPathExists(const string &path){
+    return fs::exists(path);
+}
+
 string AutoUpdateDisabler::replaceUpdateBehaviour()
 {
     return "\t\"AutoUpdateBehavior\"\t\t\"1\"";

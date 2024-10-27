@@ -41,3 +41,8 @@ string FileUtility::readFileContents(const string &filePath)
     file.close();
     return buffer.str();
 }
+
+bool FileUtility::checkPathExists(const string &path)
+{
+    return filesystem::exists(path);
+}

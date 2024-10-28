@@ -29,6 +29,14 @@ int main()
                 CloudDisabler cloudDisabler;
                 Api api;
 
+                string userDataPath = "C:\\Program Files (x86)\\Steam\\userdata";
+                if (fileUtility.checkPathExists(userDataPath))
+                {
+                }
+                else
+                {
+                }
+
                 string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\n");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
@@ -59,24 +67,20 @@ int main()
                 FileUtility fileUtility;
                 AutoUpdateDisabler autoUpdateDisabler;
 
-                // string defaultWinPath = "C:\\Program Files (x86)\\Steam\\userdata";
-                // if (autoUpdateDisabler.checkPathExists(defaultWinPath))
-                // {
-                //     // iterate through steam id folders, then for each folder use autoUpdateDisabler.iterateSteamApps
+                string steamAppsPath = "C:\\Program Files (x86)\\Steam\\steamapps";
 
-
-
-
-                // }
-                // else
-                // {
+                if (fileUtility.checkPathExists(steamAppsPath))
+                {
+                }
+                else
+                {
                     string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
                     bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
                     if (iterateVar)
                     {
                         cout << ">Success" << endl;
                     }
-                // }
+                }
             }
             else
             {

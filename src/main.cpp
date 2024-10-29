@@ -71,10 +71,13 @@ int main()
 
                 if (fileUtility.checkPathExists(steamAppsPath))
                 {
+
+
                 }
                 else
                 {
-                    string steamapps_directory = fileUtility.getDirectory(">Enter directory for steamapps:\n");
+                    cout << "Could not find Steam directory in Program Files (x86)\n" << endl;
+                    string steamapps_directory = fileUtility.getDirectory(">Enter directory for \\Steam\\steamapps\\ :\n");
                     bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
                     if (iterateVar)
                     {

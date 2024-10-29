@@ -71,15 +71,19 @@ int main()
 
                 if (fileUtility.checkPathExists(steamAppsPath))
                 {
-
-
+                    bool iterateSteamAppsPath = autoUpdateDisabler.iterateSteamApps(steamAppsPath);
+                    if (iterateSteamAppsPath)
+                    {
+                        cout << ">Success" << endl;
+                    }
                 }
                 else
                 {
-                    cout << "Could not find Steam directory in Program Files (x86)\n" << endl;
-                    string steamapps_directory = fileUtility.getDirectory(">Enter directory for \\Steam\\steamapps\\ :\n");
-                    bool iterateVar = autoUpdateDisabler.iterateSteamApps(steamapps_directory);
-                    if (iterateVar)
+                    cout << "Could not find Steam directory in Program Files (x86)\n"
+                         << endl;
+                    string manualSteamAppsPath = fileUtility.getDirectory(">Enter directory for \\Steam\\steamapps\\ :\n");
+                    bool iterateManualPath = autoUpdateDisabler.iterateSteamApps(manualSteamAppsPath);
+                    if (iterateManualPath)
                     {
                         cout << ">Success" << endl;
                     }

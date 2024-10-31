@@ -13,8 +13,8 @@ int main()
 {
     try
     {
-        bool restart = true;
-        while (restart)
+        // bool restart = true;
+        while (true)
         {
             cout << ">Enter 1 to disable Steam Cloud" << endl;
             cout << ">Enter 2 to disable Auto-updates" << endl;
@@ -23,7 +23,7 @@ int main()
             getline(cin, input);
             if (input == "1")
             {
-                restart = false;
+                // restart = false;
 
                 FileUtility fileUtility;
                 CloudDisabler cloudDisabler;
@@ -59,10 +59,11 @@ int main()
                         cout << ">Success" << endl;
                     }
                 }
+                break;
             }
             else if (input == "2")
             {
-                restart = false;
+                // restart = false;
 
                 FileUtility fileUtility;
                 AutoUpdateDisabler autoUpdateDisabler;
@@ -88,6 +89,7 @@ int main()
                         cout << ">Success" << endl;
                     }
                 }
+                break;
             }
             else
             {
@@ -97,11 +99,12 @@ int main()
         }
         cout << ">Press ENTER to exit..." << endl;
         getchar();
-        return 0;
+        // return 0;
     }
     catch (const exception &e)
     {
         cerr << ">Error: " << e.what() << endl;
         return 1;
     }
+    return 0;
 }

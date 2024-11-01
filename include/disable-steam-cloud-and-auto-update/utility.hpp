@@ -11,5 +11,5 @@ public:
     FileUtility();
     std::string getDirectory(const std::string &prompt);
     std::string readFileContents(const std::string &filePath);
-    bool checkPathExists(const string &path);
+    bool checkPathExists(const std::string &path);
 };

@@ -13,7 +13,6 @@ int main()
 {
     try
     {
-        // bool restart = true;
         while (true)
         {
             cout << ">Enter 1 to disable Steam Cloud" << endl;
@@ -23,24 +22,24 @@ int main()
             getline(cin, input);
             if (input == "1")
             {
-                // restart = false;
-
                 FileUtility fileUtility;
                 CloudDisabler cloudDisabler;
                 Api api;
 
                 string userDataPath = "C:\\Program Files (x86)\\Steam\\userdata";
-                if (fileUtility.checkPathExists(userDataPath))
+                string steamAppsPath = "C:\\Program Files (x86)\\Steam\\steamapps";
+                if (fileUtility.checkPathExists(userDataPath) && fileUtility.checkPathExists(steamAppsPath))
                 {
+                    string library_file = steamAppsPath + "/libraryfolders.vdf";
                 }
                 else
                 {
                 }
 
-                string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\n");
+                string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\nExample: C:\\Program Files (x86)\\Steam\\userdata\\STEAM ID\\7\\remote");
                 string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
-                string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\n");
+                string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:\\Program Files (x86)\\Steam\\steamapps");
                 string library_file = library_directory + "/libraryfolders.vdf";
 
                 string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
@@ -48,8 +47,7 @@ int main()
 
                 string game_ids = cloudDisabler.extractGameIds(library_content);
 
-                stringstream test = api.removeQuotes(game_ids);
-                stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
+                // stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
                 // apiRequest(appIdsNoQuotes);
 
                 if (!game_ids.empty())
@@ -63,8 +61,6 @@ int main()
             }
             else if (input == "2")
             {
-                // restart = false;
-
                 FileUtility fileUtility;
                 AutoUpdateDisabler autoUpdateDisabler;
 
@@ -99,7 +95,6 @@ int main()
         }
         cout << ">Press ENTER to exit..." << endl;
         getchar();
-        // return 0;
     }
     catch (const exception &e)
     {

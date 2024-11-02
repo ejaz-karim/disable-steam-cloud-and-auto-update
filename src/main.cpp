@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <filesystem>
 #include "disable-steam-cloud-and-auto-update/cloud_disable.hpp"
 #include "disable-steam-cloud-and-auto-update/autoupdate_disable.hpp"
 #include "disable-steam-cloud-and-auto-update/utility.hpp"
@@ -31,33 +32,52 @@ int main()
                 if (fileUtility.checkPathExists(userDataPath) && fileUtility.checkPathExists(steamAppsPath))
                 {
                     string library_file = steamAppsPath + "/libraryfolders.vdf";
+                    string library_content = fileUtility.readFileContents(library_file);
+                    string game_ids = cloudDisabler.extractGameIds(library_content);
+
+                    for(const auto& entry : filesystem::directory_iterator(userDataPath)){
+
+
+                    }
+
+
+
+
+
+                    if (!game_ids.empty())
+                    {
+                        if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
+                        {
+                            cout << ">Success" << endl;
+                        }
+                    }
+                    break;
                 }
                 else
                 {
-                }
+                    string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\nExample: C:\\Program Files (x86)\\Steam\\userdata\\STEAM ID\\7\\remote");
+                    string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
 
-                string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\nExample: C:\\Program Files (x86)\\Steam\\userdata\\STEAM ID\\7\\remote");
-                string sharedconfig_file = sharedconfig_directory + "/sharedconfig.vdf";
+                    string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:\\Program Files (x86)\\Steam\\steamapps");
+                    string library_file = library_directory + "/libraryfolders.vdf";
 
-                string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:\\Program Files (x86)\\Steam\\steamapps");
-                string library_file = library_directory + "/libraryfolders.vdf";
+                    string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
+                    string library_content = fileUtility.readFileContents(library_file);
 
-                string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
-                string library_content = fileUtility.readFileContents(library_file);
+                    string game_ids = cloudDisabler.extractGameIds(library_content);
 
-                string game_ids = cloudDisabler.extractGameIds(library_content);
+                    // stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
+                    // apiRequest(appIdsNoQuotes);
 
-                // stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
-                // apiRequest(appIdsNoQuotes);
-
-                if (!game_ids.empty())
-                {
-                    if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
+                    if (!game_ids.empty())
                     {
-                        cout << ">Success" << endl;
+                        if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
+                        {
+                            cout << ">Success" << endl;
+                        }
                     }
+                    break;
                 }
-                break;
             }
             else if (input == "2")
             {

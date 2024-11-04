@@ -56,7 +56,7 @@ int main()
                             }
                             else
                             {
-                                cout << "Could not find /remote/ folder for this Steam ID" << endl;
+                                cout << "Could not find expected /remote/ folder given this path: " << remotePath << endl;
                             }
                         }
                     }

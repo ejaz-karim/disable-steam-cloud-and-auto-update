@@ -47,14 +47,16 @@ bool FileUtility::checkPathExists(const string &path)
     return filesystem::exists(path);
 }
 
-void FileUtility::getAcfID(const string &path)
+//Get all game ids from the .acf file names in /steamapps/
+string FileUtility::getAcfID(const string &path)
 {
     stringstream buffer;
     for (const auto &entry : filesystem::directory_iterator(path))
     {
         if (entry.path().extension() == ".acf")
         {
-            cout << entry << endl;
+            buffer << entry << endl;
         }
     }
+    return buffer.str()
 }

@@ -29,6 +29,13 @@ int main()
 
                 string userDataPath = "C:/Program Files (x86)/Steam/userdata";
                 string steamAppsPath = "C:/Program Files (x86)/Steam/steamapps";
+                
+                fileUtility.getAcfID(steamAppsPath);
+
+
+
+
+
                 if (fileUtility.checkPathExists(userDataPath) && fileUtility.checkPathExists(steamAppsPath))
                 {
                     string library_file = steamAppsPath + "/libraryfolders.vdf";

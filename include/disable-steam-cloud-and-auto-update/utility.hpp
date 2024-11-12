@@ -12,5 +12,5 @@ public:
     std::string getDirectory(const std::string &prompt);
     std::string readFileContents(const std::string &filePath);
     bool checkPathExists(const std::string &path);
-    void getAcfID(const string &path);
+    std::string getAcfID(const string &path);
 };

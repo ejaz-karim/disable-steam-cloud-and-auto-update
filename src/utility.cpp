@@ -58,5 +58,5 @@ string FileUtility::getAcfID(const string &path)
             buffer << entry << endl;
         }
     }
-    return buffer.str()
+    return buffer.str();
 }

@@ -55,8 +55,9 @@ string FileUtility::getAcfID(const string &path)
     {
         if (entry.path().extension() == ".acf")
         {
-            buffer << entry << endl;
+            buffer << entry.path().filename() << endl;
         }
     }
+    cout << buffer.str() << endl;
     return buffer.str();
 }

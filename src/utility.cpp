@@ -47,7 +47,7 @@ bool FileUtility::checkPathExists(const string &path)
     return filesystem::exists(path);
 }
 
-//Get all game ids from the .acf file names in /steamapps/
+// Get all game ids from the .acf file names in /steamapps/
 string FileUtility::getAcfID(const string &path)
 {
     stringstream buffer;
@@ -60,4 +60,18 @@ string FileUtility::getAcfID(const string &path)
     }
     cout << buffer.str() << endl;
     return buffer.str();
+}
+
+stringstream FileUtility::removeQuotes(const string &game_ids)
+{
+    stringstream ss(game_ids);
+    string line;
+    stringstream noQuotes;
+    while (getline(ss, line))
+    {
+        line.erase(line.find_first_of('"'), 1);
+        line.erase(line.find_last_of('"'), 1);
+        noQuotes << line << endl;
+    }
+    return noQuotes;
 }

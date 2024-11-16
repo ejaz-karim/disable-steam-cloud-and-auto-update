@@ -13,4 +13,5 @@ public:
     std::string readFileContents(const std::string &filePath);
     bool checkPathExists(const std::string &path);
     std::string getAcfID(const std::string &path);
+    std::stringstream removeQuotes(const std::string &game_ids);
 };

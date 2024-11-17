@@ -25,7 +25,7 @@ int main()
             {
                 FileUtility fileUtility;
                 CloudDisabler cloudDisabler;
-                Api api;
+                // Api api;
 
                 string userDataPath = "C:/Program Files (x86)/Steam/userdata";
                 string steamAppsPath = "C:/Program Files (x86)/Steam/steamapps";

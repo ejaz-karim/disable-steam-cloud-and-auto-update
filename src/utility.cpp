@@ -55,10 +55,14 @@ string FileUtility::getAcfID(const string &path)
     {
         if (entry.path().extension() == ".acf")
         {
-            buffer << entry.path().filename() << endl;
+            string filename = entry.path().filename().string();
+            // erasing appmanifest_
+            filename.erase(0, 12);
+            // erasing .acf
+            filename.erase(filename.size() - 4);
+            buffer << filename << endl;
         }
     }
-    cout << buffer.str() << endl;
     return buffer.str();
 }
 

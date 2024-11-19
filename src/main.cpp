@@ -29,18 +29,13 @@ int main()
 
                 string userDataPath = "C:/Program Files (x86)/Steam/userdata";
                 string steamAppsPath = "C:/Program Files (x86)/Steam/steamapps";
-                
-                fileUtility.getAcfID(steamAppsPath);
-
-
-
-
 
                 if (fileUtility.checkPathExists(userDataPath) && fileUtility.checkPathExists(steamAppsPath))
                 {
                     string library_file = steamAppsPath + "/libraryfolders.vdf";
                     string library_content = fileUtility.readFileContents(library_file);
                     string game_ids = cloudDisabler.extractGameIds(library_content);
+                    string acfIds = fileUtility.getAcfID(steamAppsPath);
 
                     for (const auto &entry : filesystem::directory_iterator(userDataPath))
                     {

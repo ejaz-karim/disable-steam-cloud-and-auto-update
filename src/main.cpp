@@ -37,6 +37,8 @@ int main()
                     string game_ids = cloudDisabler.extractGameIds(library_content);
                     string acfIds = fileUtility.getAcfID(steamAppsPath);
 
+                    cout << game_ids << endl << acfIds << endl;
+
                     for (const auto &entry : filesystem::directory_iterator(userDataPath))
                     {
                         if (entry.is_directory())

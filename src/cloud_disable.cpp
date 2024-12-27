@@ -13,6 +13,7 @@ bool CloudDisabler::checkAppsBlock(const string &buffer)
     return buffer.find("apps") != string::npos;
 }
 
+[[deprecated("Use getAcfID() in utility.cpp instead.")]]
 string CloudDisabler::extractGameIds(const string &libraryBuffer)
 {
     stringstream id_buffer;

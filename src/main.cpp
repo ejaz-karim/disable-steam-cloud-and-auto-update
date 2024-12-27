@@ -34,10 +34,10 @@ int main()
                 {
                     string library_file = steamAppsPath + "/libraryfolders.vdf";
                     string library_content = fileUtility.readFileContents(library_file);
-                    string game_ids = cloudDisabler.extractGameIds(library_content);
+                    // string game_ids = cloudDisabler.extractGameIds(library_content);
                     string acfIds = fileUtility.getAcfID(steamAppsPath);
 
-                    cout << game_ids << endl << acfIds << endl;
+                    // cout << game_ids << endl << acfIds << endl;
 
                     for (const auto &entry : filesystem::directory_iterator(userDataPath))
                     {
@@ -50,7 +50,7 @@ int main()
                                 string sharedconfig_file = remotePath + "/sharedconfig.vdf";
                                 string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
 
-                                if (!game_ids.empty())
+                                if (!acfIds.empty())
                                 {
                                     if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
                                     {
@@ -78,14 +78,15 @@ int main()
                     string sharedconfig_content = fileUtility.readFileContents(sharedconfig_file);
                     string library_content = fileUtility.readFileContents(library_file);
 
-                    string game_ids = cloudDisabler.extractGameIds(library_content);
+                    // string game_ids = cloudDisabler.extractGameIds(library_content);
+                    string acfIds = fileUtility.getAcfID(steamAppsPath);
 
                     // stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
                     // apiRequest(appIdsNoQuotes);
 
-                    if (!game_ids.empty())
+                    if (!acfIds.empty())
                     {
-                        if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, game_ids))
+                        if (cloudDisabler.replaceAppsBlock(sharedconfig_file, sharedconfig_content, acfIds))
                         {
                             cout << ">Success" << endl;
                         }

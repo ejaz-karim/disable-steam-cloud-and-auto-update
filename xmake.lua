@@ -5,5 +5,5 @@ target("disable-steam-cloud-and-auto-update")
     add_files("src/**.cpp")
 
     if is_plat("mingw") then
-        add_ldflags("-static-libgcc", "-static-libstdc++", "-static")
+        add_ldflags("-static-libgcc", "-static-libstdc++", "-static", {force = true})
     end

@@ -1,3 +1,5 @@
+set_defaultmode("release")
+
 target("disable-steam-cloud-and-auto-update")
     set_kind("binary")
     add_includedirs("include")

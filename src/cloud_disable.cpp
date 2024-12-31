@@ -13,8 +13,8 @@ bool CloudDisabler::checkAppsBlock(const string &buffer)
     return buffer.find("apps") != string::npos;
 }
 
-void CloudDisabler::createAppsBlock(){
-    
+void CloudDisabler::createAppsBlock()
+{
 }
 
 [[deprecated("Use getAcfID() in utility.cpp instead.")]]
@@ -78,14 +78,24 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
     // Change this ########
     if (!checkAppsBlock(sharedConfigBuffer))
     {
-        cout << "\"apps\" was not found in /sharedconfig.vdf, this can occur if you recently installed Steam" << endl;
-        sharedconfig_if.close();
-        return false;
+        // cout << "\"apps\" was not found in /sharedconfig.vdf, this can occur if you recently installed Steam" << endl;
+        // sharedconfig_if.close();
+        // return false;
+
+        while (getline(sharedconfig_if, line))
+        {
+            sharedconfig_buffer << line << endl;
+
+            if (line.find("\"Steam\"") != string::npos && line.find("{") != string::npos)
+            {
+
+            }
+        }
     }
 
     while (getline(sharedconfig_if, line))
     {
-        if (line.find("apps") != string::npos)
+        if (line.find("\"apps\"") != string::npos)
         {
             appsBlockReached = true;
             sharedconfig_buffer << line << endl;

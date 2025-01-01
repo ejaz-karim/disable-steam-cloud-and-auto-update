@@ -88,7 +88,10 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
 
             if (line.find("\"Steam\"") != string::npos && line.find("{") != string::npos)
             {
-
+                sharedconfig_buffer << line << endl;
+                sharedconfig_buffer << "\"apps\"" << endl;
+                sharedconfig_buffer << "\t\t\t\t{" << endl;
+                sharedconfig_buffer << "\t\t\t\t}" << endl;
             }
         }
     }

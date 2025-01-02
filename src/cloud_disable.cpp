@@ -82,33 +82,47 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
         // sharedconfig_if.close();
         // return false;
 
-
+        bool steamBlockReached = false;
 
         while (getline(sharedconfig_if, line))
         {
             if (line.find("\"Steam\"") != string::npos)
             {
-                cout << "@@" << endl;
-                if (line.find("\t\t\t{") != string::npos){
-                cout << "###" << endl;
+                steamBlockReached = true;
+                sharedconfig_buffer << line << endl;
+
+
+
+                
+
+
 
 
                 sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
                 sharedconfig_buffer << "\t\t\t\t{" << endl;
                 sharedconfig_buffer << "\t\t\t\t}" << endl;
-                cout << "test" << endl;
-                }
+                break;
+
+
+        
             }
 
             sharedconfig_buffer << line << endl;
-            cout << "test2" << endl;
 
         }
+        if(steamBlockReached){
+            while(getline(sharedconfig_if, line)){
+                sharedconfig_buffer << line << endl;
+            }
+        }
+
+
+
+
         // sharedconfig_if.close();
         ofstream sharedconfig_of(sharedConfigFile);
         sharedconfig_of << sharedconfig_buffer.str();
         // sharedconfig_of.close();
-        cout << "test3" << endl;
 
     }
 

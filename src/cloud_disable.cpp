@@ -90,6 +90,8 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
             {
                 steamBlockReached = true;
                 sharedconfig_buffer << line << endl;
+                sharedconfig_buffer << "\t\t\t{" << endl;
+
 
 
 
@@ -112,7 +114,9 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
         }
         if(steamBlockReached){
             while(getline(sharedconfig_if, line)){
-                sharedconfig_buffer << line << endl;
+                // Change this due to edge cases
+                if(line != "\t\t\t{"){
+                sharedconfig_buffer << line << endl;}
             }
         }
 

@@ -78,57 +78,80 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
     // Change this ########
     if (!checkAppsBlock(sharedConfigBuffer))
     {
-        // cout << "\"apps\" was not found in /sharedconfig.vdf, this can occur if you recently installed Steam" << endl;
-        // sharedconfig_if.close();
-        // return false;
 
-        bool steamBlockReached = false;
+        //     bool steamBlockReached = false;
+
+        //     while (getline(sharedconfig_if, line))
+        //     {
+        //         if (line.find("\"Steam\"") != string::npos)
+        //         {
+        //             steamBlockReached = true;
+        //             sharedconfig_buffer << line << endl;
+        //             sharedconfig_buffer << "\t\t\t{" << endl;
+
+        //             sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
+        //             sharedconfig_buffer << "\t\t\t\t{" << endl;
+        //             sharedconfig_buffer << "\t\t\t\t}" << endl;
+        //             break;
+        //         }
+
+        //         sharedconfig_buffer << line << endl;
+        //     }
+        //     if (steamBlockReached)
+        //     {
+        //         while (getline(sharedconfig_if, line))
+        //         {
+        //             // Change this due to edge cases
+        //             if (line != "\t\t\t{")
+        //             {
+        //                 sharedconfig_buffer << line << endl;
+        //             }
+        //         }
+        //     }
+
+        //     // sharedconfig_if.close();
+        //     ofstream sharedconfig_of(sharedConfigFile);
+        //     sharedconfig_of << sharedconfig_buffer.str();
+        //     // sharedconfig_of.close();
+
+        string nextLine;
 
         while (getline(sharedconfig_if, line))
         {
-            if (line.find("\"Steam\"") != string::npos)
+            if (getline(sharedconfig_if, nextLine))
             {
-                steamBlockReached = true;
+
+
+                if(line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{"){
+
+                    sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
+                    sharedconfig_buffer << "\t\t\t\t{" << endl;
+                    sharedconfig_buffer << "\t\t\t\t}" << endl;
+
+
+                }
+
+
+
                 sharedconfig_buffer << line << endl;
-                sharedconfig_buffer << "\t\t\t{" << endl;
+                sharedconfig_buffer << nextLine << endl;
+
 
 
 
 
                 
+            }
 
 
 
 
-                sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
-                sharedconfig_buffer << "\t\t\t\t{" << endl;
-                sharedconfig_buffer << "\t\t\t\t}" << endl;
-                break;
-
-
+        }
         
-            }
-
-            sharedconfig_buffer << line << endl;
-
-        }
-        if(steamBlockReached){
-            while(getline(sharedconfig_if, line)){
-                // Change this due to edge cases
-                if(line != "\t\t\t{"){
-                sharedconfig_buffer << line << endl;}
-            }
-        }
-
-
-
-
-        // sharedconfig_if.close();
-        ofstream sharedconfig_of(sharedConfigFile);
-        sharedconfig_of << sharedconfig_buffer.str();
-        // sharedconfig_of.close();
-
+        cout << sharedconfig_buffer.str() << endl;
     }
+
+
 
 
 

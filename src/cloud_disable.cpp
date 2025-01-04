@@ -75,44 +75,11 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
     string line;
     bool appsBlockReached = false;
 
-    // Change this ########
+
+    
+
     if (!checkAppsBlock(sharedConfigBuffer))
     {
-
-        //     bool steamBlockReached = false;
-
-        //     while (getline(sharedconfig_if, line))
-        //     {
-        //         if (line.find("\"Steam\"") != string::npos)
-        //         {
-        //             steamBlockReached = true;
-        //             sharedconfig_buffer << line << endl;
-        //             sharedconfig_buffer << "\t\t\t{" << endl;
-
-        //             sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
-        //             sharedconfig_buffer << "\t\t\t\t{" << endl;
-        //             sharedconfig_buffer << "\t\t\t\t}" << endl;
-        //             break;
-        //         }
-
-        //         sharedconfig_buffer << line << endl;
-        //     }
-        //     if (steamBlockReached)
-        //     {
-        //         while (getline(sharedconfig_if, line))
-        //         {
-        //             // Change this due to edge cases
-        //             if (line != "\t\t\t{")
-        //             {
-        //                 sharedconfig_buffer << line << endl;
-        //             }
-        //         }
-        //     }
-
-        //     // sharedconfig_if.close();
-        //     ofstream sharedconfig_of(sharedConfigFile);
-        //     sharedconfig_of << sharedconfig_buffer.str();
-        //     // sharedconfig_of.close();
 
         string nextLine;
 
@@ -121,39 +88,22 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
             if (getline(sharedconfig_if, nextLine))
             {
 
+                sharedconfig_buffer << line << endl;
+                sharedconfig_buffer << nextLine << endl;
 
-                if(line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{"){
+                if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
+                {
 
                     sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
                     sharedconfig_buffer << "\t\t\t\t{" << endl;
                     sharedconfig_buffer << "\t\t\t\t}" << endl;
-
-
                 }
-
-
-
-                sharedconfig_buffer << line << endl;
-                sharedconfig_buffer << nextLine << endl;
-
-
-
-
-
-                
             }
-
-
-
-
         }
-        
-        cout << sharedconfig_buffer.str() << endl;
+
+        ofstream sharedconfig_of(sharedConfigFile);
+        sharedconfig_of << sharedconfig_buffer.str();
     }
-
-
-
-
 
 
 

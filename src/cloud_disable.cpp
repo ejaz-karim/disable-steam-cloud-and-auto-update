@@ -10,7 +10,7 @@ CloudDisabler::CloudDisabler() {}
 
 bool CloudDisabler::checkAppsBlock(const string &buffer)
 {
-    return buffer.find("apps") != string::npos;
+    return buffer.find("\"apps\"") != string::npos;
 }
 
 void CloudDisabler::createAppsBlock()
@@ -73,10 +73,6 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
 
     stringstream sharedconfig_buffer;
     string line;
-    bool appsBlockReached = false;
-
-
-    
 
     if (!checkAppsBlock(sharedConfigBuffer))
     {
@@ -106,8 +102,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
     }
 
 
-
-
+    bool appsBlockReached = false;
 
     while (getline(sharedconfig_if, line))
     {

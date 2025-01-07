@@ -44,12 +44,12 @@ int main()
                             string remotePath = steamID + "/7/remote";
                             if (filesystem::exists(remotePath))
                             {
-                                string sharedConfigFilePath = remotePath + "/sharedconfig.vdf";
-                                string sharedConfigBuffer  = fileUtility.readFileContents(sharedConfigFilePath);
+                                string sharedConfigPath = remotePath + "/sharedconfig.vdf";
+                                string sharedConfigBuffer  = fileUtility.readFileContents(sharedConfigPath);
 
                                 if (!acfIds.empty())
                                 {
-                                    if (cloudDisabler.replaceAppsBlock(sharedConfigFilePath, sharedConfigBuffer, acfIds))
+                                    if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigBuffer, acfIds))
                                     {
                                         cout << ">Success" << endl;
                                     }
@@ -67,12 +67,12 @@ int main()
                 else
                 {
                     string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\nExample: C:/Program Files (x86)/Steam/userdata/STEAM ID/7/remote");
-                    string sharedConfigFilePath = sharedconfig_directory + "/sharedconfig.vdf";
+                    string sharedConfigPath = sharedconfig_directory + "/sharedconfig.vdf";
 
                     string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:/Program Files (x86)/Steam/steamapps");
                     string library_file = library_directory + "/libraryfolders.vdf";
 
-                    string sharedConfigBuffer = fileUtility.readFileContents(sharedConfigFilePath);
+                    string sharedConfigBuffer = fileUtility.readFileContents(sharedConfigPath);
                     string library_content = fileUtility.readFileContents(library_file);
 
                     string acfIds = fileUtility.getAcfID(steamAppsPath);
@@ -82,7 +82,7 @@ int main()
 
                     if (!acfIds.empty())
                     {
-                        if (cloudDisabler.replaceAppsBlock(sharedConfigFilePath, sharedConfigBuffer, acfIds))
+                        if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigBuffer, acfIds))
                         {
                             cout << ">Success" << endl;
                         }

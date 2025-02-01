@@ -60,6 +60,8 @@ string FileUtility::getAcfID(const string &path)
             filename.erase(0, 12);
             // erasing .acf
             filename.erase(filename.size() - 4);
+            // adding quotes
+            filename = "\"" + filename + "\"";
             buffer << filename << endl;
         }
     }

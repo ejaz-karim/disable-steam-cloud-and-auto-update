@@ -3,6 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
+#include <vector>
 #include "disable-steam-cloud-and-auto-update/utility.hpp"
 
 using namespace std;
@@ -50,7 +51,7 @@ bool FileUtility::checkPathExists(const string &path)
 // Get all game ids from the .acf file names in /steamapps/
 string FileUtility::getAcfID(const string &path)
 {
-    stringstream buffer;
+    vector<int> intVector;
     for (const auto &entry : filesystem::directory_iterator(path))
     {
         if (entry.path().extension() == ".acf")
@@ -60,11 +61,21 @@ string FileUtility::getAcfID(const string &path)
             filename.erase(0, 12);
             // erasing .acf
             filename.erase(filename.size() - 4);
-            // adding quotes
-            filename = "\"" + filename + "\"";
-            buffer << filename << endl;
+            
+            intVector.push_back(stoi(filename));
         }
     }
+
+    sort(intVector.begin(), intVector.end());
+    stringstream buffer;
+
+    for (auto &entry : intVector)
+    {
+        string id = to_string(entry);
+        id = "\"" + id + "\"";
+        buffer << id << endl;
+    }
+    cout << buffer.str() << endl;
     return buffer.str();
 }
 

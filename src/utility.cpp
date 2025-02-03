@@ -61,7 +61,7 @@ string FileUtility::getAcfID(const string &path)
             filename.erase(0, 12);
             // erasing .acf
             filename.erase(filename.size() - 4);
-            
+
             intVector.push_back(stoi(filename));
         }
     }
@@ -75,7 +75,6 @@ string FileUtility::getAcfID(const string &path)
         id = "\"" + id + "\"";
         buffer << id << endl;
     }
-    cout << buffer.str() << endl;
     return buffer.str();
 }
 

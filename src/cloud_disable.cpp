@@ -15,6 +15,33 @@ bool CloudDisabler::checkAppsBlock(const string &buffer)
 
 void CloudDisabler::createAppsBlock()
 {
+            string nextLine;
+
+        while (getline(sharedconfig_if, line))
+        {
+            if (getline(sharedconfig_if, nextLine))
+            {
+
+                sharedconfig_buffer << line << endl;
+                sharedconfig_buffer << nextLine << endl;
+
+                if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
+                {
+
+                    sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
+                    sharedconfig_buffer << "\t\t\t\t{" << endl;
+                    sharedconfig_buffer << "\t\t\t\t}" << endl;
+                }
+            }
+        }
+
+        ofstream sharedconfig_of(sharedConfigFile);
+        sharedconfig_of << sharedconfig_buffer.str();
+
+
+
+
+
 }
 
 [[deprecated("Use getAcfID() in utility.cpp instead.")]]

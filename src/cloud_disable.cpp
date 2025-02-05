@@ -15,31 +15,6 @@ bool CloudDisabler::checkAppsBlock(const string &buffer)
 
 void CloudDisabler::createAppsBlock()
 {
-            string nextLine;
-
-        while (getline(sharedconfig_if, line))
-        {
-            if (getline(sharedconfig_if, nextLine))
-            {
-
-                sharedconfig_buffer << line << endl;
-                sharedconfig_buffer << nextLine << endl;
-
-                if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
-                {
-
-                    sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
-                    sharedconfig_buffer << "\t\t\t\t{" << endl;
-                    sharedconfig_buffer << "\t\t\t\t}" << endl;
-                }
-            }
-        }
-
-        ofstream sharedconfig_of(sharedConfigFile);
-        sharedconfig_of << sharedconfig_buffer.str();
-
-
-
 
 
 }
@@ -90,6 +65,12 @@ string CloudDisabler::extractGameIds(const string &libraryBuffer)
     return id_buffer.str();
 }
 
+
+
+
+
+
+
 bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const string &sharedConfigBuffer, const string &idBuffer)
 {
     ifstream sharedconfig_if(sharedConfigFile);
@@ -126,6 +107,10 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
 
         ofstream sharedconfig_of(sharedConfigFile);
         sharedconfig_of << sharedconfig_buffer.str();
+
+        sharedconfig_of.close();
+        sharedconfig_if.close();
+        
     }
 
 

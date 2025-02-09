@@ -45,11 +45,11 @@ int main()
                             if (filesystem::exists(remotePath))
                             {
                                 string sharedConfigPath = remotePath + "/sharedconfig.vdf";
-                                string sharedConfigBuffer  = fileUtility.readFileContents(sharedConfigPath);
+                                string sharedConfigText  = fileUtility.readFileContents(sharedConfigPath);
 
                                 if (!acfIds.empty())
                                 {
-                                    if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigBuffer, acfIds))
+                                    if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigText, acfIds))
                                     {
                                         cout << ">Success" << endl;
                                     }
@@ -72,7 +72,7 @@ int main()
                     string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:/Program Files (x86)/Steam/steamapps");
                     string library_file = library_directory + "/libraryfolders.vdf";
 
-                    string sharedConfigBuffer = fileUtility.readFileContents(sharedConfigPath);
+                    string sharedConfigText = fileUtility.readFileContents(sharedConfigPath);
                     string library_content = fileUtility.readFileContents(library_file);
 
                     string acfIds = fileUtility.getAcfID(steamAppsPath);
@@ -82,7 +82,7 @@ int main()
 
                     if (!acfIds.empty())
                     {
-                        if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigBuffer, acfIds))
+                        if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigText, acfIds))
                         {
                             cout << ">Success" << endl;
                         }

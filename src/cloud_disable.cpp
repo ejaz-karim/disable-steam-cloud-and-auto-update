@@ -71,18 +71,18 @@ string CloudDisabler::extractGameIds(const string &libraryBuffer)
 
 
 
-bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const string &sharedConfigBuffer, const string &idBuffer)
+bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const string &sharedConfigText, const string &acfIds)
 {
-    ifstream sharedconfig_if(sharedConfigFile);
+    ifstream sharedconfig_if(sharedConfigPath);
     if (!sharedconfig_if)
     {
-        throw runtime_error("Failed to open file: " + sharedConfigFile);
+        throw runtime_error("Failed to open file: " + sharedConfigPath);
     }
 
     stringstream sharedconfig_buffer;
     string line;
 
-    if (!checkAppsBlock(sharedConfigBuffer))
+    if (!checkAppsBlock(sharedConfigText))
     {
 
         string nextLine;
@@ -105,25 +105,31 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
             }
         }
 
-        ofstream sharedconfig_of(sharedConfigFile);
+        ofstream sharedconfig_of(sharedConfigPath);
         sharedconfig_of << sharedconfig_buffer.str();
 
-        sharedconfig_of.close();
-        sharedconfig_if.close();
+        // sharedconfig_of.close();
+        // sharedconfig_if.close();
         
+        // sharedconfig_buffer.str("");
+        // sharedconfig_buffer.clear();
+        // cout << "############" << endl;
+
     }
 
 
     bool appsBlockReached = false;
+    // cout << "+++++++++++++++++++" << endl;
 
     while (getline(sharedconfig_if, line))
     {
+        // cout << "@@@@@@@@@@@@" << endl;
         if (line.find("\"apps\"") != string::npos)
         {
             appsBlockReached = true;
             sharedconfig_buffer << line << endl;
             sharedconfig_buffer << "\t\t\t\t{" << endl;
-            stringstream id_buffer(idBuffer);
+            stringstream id_buffer(acfIds);
             string sharedconfig_idLine;
             while (getline(id_buffer, sharedconfig_idLine))
             {
@@ -133,7 +139,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
                 sharedconfig_buffer << "\t\t\t\t\t}" << endl;
             }
         }
-        else if (appsBlockReached && line == "\t\t\t\t}")
+        else if (line == "\t\t\t\t}")
         {
             appsBlockReached = false;
             sharedconfig_buffer << line << endl;
@@ -146,10 +152,10 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigFile, const strin
 
     sharedconfig_if.close();
 
-    ofstream sharedconfig_of(sharedConfigFile);
+    ofstream sharedconfig_of(sharedConfigPath);
     if (!sharedconfig_of)
     {
-        throw runtime_error("Failed to open file for writing: " + sharedConfigFile);
+        throw runtime_error("Failed to open file for writing: " + sharedConfigPath);
     }
     sharedconfig_of << sharedconfig_buffer.str();
     sharedconfig_of.close();

@@ -45,7 +45,7 @@ int main()
                             if (filesystem::exists(remotePath))
                             {
                                 string sharedConfigPath = remotePath + "/sharedconfig.vdf";
-                                string sharedConfigText  = fileUtility.readFileContents(sharedConfigPath);
+                                string sharedConfigText = fileUtility.readFileContents(sharedConfigPath);
 
                                 if (!acfIds.empty())
                                 {
@@ -53,6 +53,10 @@ int main()
                                     {
                                         cout << ">Success" << endl;
                                     }
+                                }
+                                else
+                                {
+                                    cout << ">There are no games in your steamapps folder" << endl;
                                 }
                             }
                             else

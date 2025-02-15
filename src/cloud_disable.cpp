@@ -88,19 +88,21 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                     buffer << "\t\t\t\t}" << endl;
                 }
             }
+            else
+            {
+                buffer << line << endl;
+            }
         }
 
-        ofstream sharedConfig(sharedConfigPath, ios::trunc);
-        if (sharedConfig.is_open())
-        {
-            sharedConfig << buffer.rdbuf();
-            sharedConfig.close();
-        }
-        else
-        {
-            cout << "sharedconfig.vdf could not be opened when trying to write to it." << endl;
-        }
+
+        ofstream sharedConfigFile(sharedConfigPath, ios::trunc);
+        sharedConfigFile << buffer.rdbuf() << endl;
+        sharedConfigFile.close();
+        
+
     }
+
+    return true;
 }
 
 // bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const string &sharedConfigText, const string &acfIds)

@@ -13,8 +13,38 @@ bool CloudDisabler::checkAppsBlock(const string &text)
     return text.find("\"apps\"") != string::npos;
 }
 
-void CloudDisabler::createAppsBlock()
+void CloudDisabler::createAppsBlock(const string &sharedConfigPath, const string &sharedConfigText)
 {
+    string line;
+    string nextLine;
+    stringstream buffer;
+    stringstream sharedConfigTextStream(sharedConfigText);
+
+    while (getline(sharedConfigTextStream, line))
+    {
+        if (getline(sharedConfigTextStream, nextLine))
+        {
+
+            buffer << line << endl;
+            buffer << nextLine << endl;
+
+            if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
+            {
+
+                buffer << "\t\t\t\t\"apps\"" << endl;
+                buffer << "\t\t\t\t{" << endl;
+                buffer << "\t\t\t\t}" << endl;
+            }
+        }
+        else
+        {
+            buffer << line << endl;
+        }
+    }
+
+    ofstream sharedConfigFile(sharedConfigPath, ios::trunc);
+    sharedConfigFile << buffer.rdbuf();
+    sharedConfigFile.close();
 }
 
 [[deprecated("Use getAcfID() in utility.cpp instead.")]]
@@ -67,39 +97,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 {
     if (!checkAppsBlock(sharedConfigText))
     {
-        string line;
-        string nextLine;
-        stringstream buffer;
-        stringstream sharedConfigTextStream(sharedConfigText);
-
-        while (getline(sharedConfigTextStream, line))
-        {
-            if (getline(sharedConfigTextStream, nextLine))
-            {
-
-                buffer << line << endl;
-                buffer << nextLine << endl;
-
-                if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
-                {
-
-                    buffer << "\t\t\t\t\"apps\"" << endl;
-                    buffer << "\t\t\t\t{" << endl;
-                    buffer << "\t\t\t\t}" << endl;
-                }
-            }
-            else
-            {
-                buffer << line << endl;
-            }
-        }
-
-
-        ofstream sharedConfigFile(sharedConfigPath, ios::trunc);
-        sharedConfigFile << buffer.rdbuf() << endl;
-        sharedConfigFile.close();
-        
-
+        createAppsBlock(sharedConfigPath, sharedConfigText);
     }
 
     return true;
@@ -116,47 +114,10 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 //     stringstream sharedconfig_buffer;
 //     string line;
 
-//     if (!checkAppsBlock(sharedConfigText))
-//     {
-
-//         string nextLine;
-
-//         while (getline(sharedconfig_if, line))
-//         {
-//             if (getline(sharedconfig_if, nextLine))
-//             {
-
-//                 sharedconfig_buffer << line << endl;
-//                 sharedconfig_buffer << nextLine << endl;
-
-//                 if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
-//                 {
-
-//                     sharedconfig_buffer << "\t\t\t\t\"apps\"" << endl;
-//                     sharedconfig_buffer << "\t\t\t\t{" << endl;
-//                     sharedconfig_buffer << "\t\t\t\t}" << endl;
-//                 }
-//             }
-//         }
-
-//         ofstream sharedconfig_of(sharedConfigPath);
-//         sharedconfig_of << sharedconfig_buffer.str();
-
-//         // sharedconfig_of.close();
-//         // sharedconfig_if.close();
-
-//         // sharedconfig_buffer.str("");
-//         // sharedconfig_buffer.clear();
-//         // cout << "############" << endl;
-
-//     }
-
 //     bool appsBlockReached = false;
-//     // cout << "+++++++++++++++++++" << endl;
 
 //     while (getline(sharedconfig_if, line))
 //     {
-//         // cout << "@@@@@@@@@@@@" << endl;
 //         if (line.find("\"apps\"") != string::npos)
 //         {
 //             appsBlockReached = true;

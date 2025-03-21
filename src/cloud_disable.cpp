@@ -13,7 +13,7 @@ bool CloudDisabler::checkAppsBlock(const string &text)
     return text.find("\"apps\"") != string::npos;
 }
 
-void CloudDisabler::createAppsBlock(const string &sharedConfigPath, const string &sharedConfigText)
+string CloudDisabler::createAppsBlock(const string &sharedConfigText)
 {
     string line;
     string nextLine;
@@ -30,7 +30,6 @@ void CloudDisabler::createAppsBlock(const string &sharedConfigPath, const string
 
             if (line == "\t\t\t\"Steam\"" && nextLine == "\t\t\t{")
             {
-
                 buffer << "\t\t\t\t\"apps\"" << endl;
                 buffer << "\t\t\t\t{" << endl;
                 buffer << "\t\t\t\t}" << endl;
@@ -42,9 +41,7 @@ void CloudDisabler::createAppsBlock(const string &sharedConfigPath, const string
         }
     }
 
-    ofstream sharedConfigFile(sharedConfigPath, ios::trunc);
-    sharedConfigFile << buffer.rdbuf();
-    sharedConfigFile.close();
+    return buffer.str();
 }
 
 [[deprecated("Use getAcfID() in utility.cpp instead.")]]
@@ -95,114 +92,59 @@ string CloudDisabler::extractGameIds(const string &libraryBuffer)
 
 bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const string &sharedConfigText, const string &acfIds)
 {
+    string newConfig = sharedConfigText;
+
     if (!checkAppsBlock(sharedConfigText))
     {
-        createAppsBlock(sharedConfigPath, sharedConfigText);
+        newConfig = createAppsBlock(sharedConfigText);
     }
 
     string line;
     string nextLine;
     stringstream buffer;
-    stringstream sharedConfigTextStream(sharedConfigText);
+    stringstream sharedConfigTextStream(newConfig);
+
+    cout << newConfig << endl;
 
     while (getline(sharedConfigTextStream, line))
     {
+
         if (getline(sharedConfigTextStream, nextLine))
         {
+
             buffer << line << endl;
             buffer << nextLine << endl;
 
             if (line == "\t\t\t\t\"apps\"" && nextLine == "\t\t\t\t{")
             {
+
                 stringstream acfIdsStream(acfIds);
                 string id;
-                while(getline(acfIdsStream, id)){
-
+                while (getline(acfIdsStream, id))
+                {
                     buffer << "\t\t\t\t\t" + id << endl;
                     buffer << "\t\t\t\t\t{" << endl;
                     buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
                     buffer << "\t\t\t\t\t}" << endl;
-
-
-
-
                 }
-
-                
-
-
             }
-        }else{
+        }
+        else
+        {
             buffer << line << endl;
         }
     }
 
+    ofstream sharedConfigFile(sharedConfigPath, ios::trunc);
 
-
-
-
-
-    return true;
-}
-
-
-
-
-
-
-
-
-
-bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const string &sharedConfigText, const string &acfIds)
-{
-    ifstream sharedconfig_if(sharedConfigPath);
-    if (!sharedconfig_if)
+    if (!sharedConfigFile)
     {
-        throw runtime_error("Failed to open file: " + sharedConfigPath);
+        cerr << "Error: Could not open file " << sharedConfigPath << endl;
+        return false;
     }
 
-    stringstream sharedconfig_buffer;
-    string line;
-
-    bool appsBlockReached = false;
-
-    while (getline(sharedconfig_if, line))
-    {
-        if (line.find("\"apps\"") != string::npos)
-        {
-            appsBlockReached = true;
-            sharedconfig_buffer << line << endl;
-            sharedconfig_buffer << "\t\t\t\t{" << endl;
-            stringstream id_buffer(acfIds);
-            string sharedconfig_idLine;
-            while (getline(id_buffer, sharedconfig_idLine))
-            {
-                sharedconfig_buffer << "\t\t\t\t\t" << sharedconfig_idLine << endl;
-                sharedconfig_buffer << "\t\t\t\t\t{" << endl;
-                sharedconfig_buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
-                sharedconfig_buffer << "\t\t\t\t\t}" << endl;
-            }
-        }
-        else if (line == "\t\t\t\t}")
-        {
-            appsBlockReached = false;
-            sharedconfig_buffer << line << endl;
-        }
-        else if (!appsBlockReached)
-        {
-            sharedconfig_buffer << line << endl;
-        }
-    }
-
-    sharedconfig_if.close();
-
-    ofstream sharedconfig_of(sharedConfigPath);
-    if (!sharedconfig_of)
-    {
-        throw runtime_error("Failed to open file for writing: " + sharedConfigPath);
-    }
-    sharedconfig_of << sharedconfig_buffer.str();
-    sharedconfig_of.close();
+    sharedConfigFile << buffer.str();
+    sharedConfigFile.close();
 
     return true;
 }

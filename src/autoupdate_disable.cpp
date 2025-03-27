@@ -27,7 +27,7 @@ bool AutoUpdateDisabler::checkStateFlags(const string &buffer)
 
 string AutoUpdateDisabler::replaceStateFlags()
 {
-    return "\t\"StateFlags\"\t\t\"512\"";
+    return "\t\"StateFlags\"\t\t\"516\"";
 }
 
 bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
@@ -45,6 +45,10 @@ bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
                 if (checkUpdateBehaviour(line))
                 {
                     buffer << replaceUpdateBehaviour() << endl;
+                }
+                else if (checkStateFlags(line))
+                {
+                    buffer << replaceStateFlags() << endl;
                 }
                 else
                 {

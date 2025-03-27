@@ -20,6 +20,16 @@ string AutoUpdateDisabler::replaceUpdateBehaviour()
     return "\t\"AutoUpdateBehavior\"\t\t\"1\"";
 }
 
+bool AutoUpdateDisabler::checkStateFlags(const string &buffer)
+{
+    return buffer.find("StateFlags") != string::npos;
+}
+
+string AutoUpdateDisabler::replaceStateFlags()
+{
+    return "\t\"StateFlags\"\t\t\"512\"";
+}
+
 bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
 {
     for (const auto &entry : fs::directory_iterator(steamAppsDirectory))

@@ -104,8 +104,6 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
     stringstream buffer;
     stringstream sharedConfigTextStream(newConfig);
 
-    cout << newConfig << endl;
-
     while (getline(sharedConfigTextStream, line))
     {
 

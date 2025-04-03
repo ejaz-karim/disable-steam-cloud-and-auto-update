@@ -13,6 +13,33 @@ bool CloudDisabler::checkAppsBlock(const string &text)
     return text.find("\"apps\"") != string::npos;
 }
 
+
+string CloudDisabler::deleteAppsBlock(const string &sharedConfigText){
+
+  	string line;
+    stringstream buffer;
+	stringstream sharedConfigTextStream(sharedConfigText);
+
+	while(getline(sharedConfigTextStream, line)){
+	if(line == "\"apps\""){
+	skip = true;
+	
+	}
+	if(!skip){
+	buffer << line << endl;
+	}
+	if(skip && line == "\t\t\t\t}"){
+	skip = false;
+	}
+
+
+
+	}
+	
+	return buffer;
+	
+}
+
 string CloudDisabler::createAppsBlock(const string &sharedConfigText)
 {
     string line;

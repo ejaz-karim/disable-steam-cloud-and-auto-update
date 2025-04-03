@@ -94,9 +94,13 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 {
     string newConfig = sharedConfigText;
 
-    if (!checkAppsBlock(sharedConfigText))
-    {
+    if(checkAppsBlock(sharedConfigText){
+
+        newConfig = deleteAppsBlock(sharedConfigText);
+
+    }else{
         newConfig = createAppsBlock(sharedConfigText);
+
     }
 
     string line;

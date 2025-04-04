@@ -13,31 +13,31 @@ bool CloudDisabler::checkAppsBlock(const string &text)
     return text.find("\"apps\"") != string::npos;
 }
 
+string CloudDisabler::deleteAppsBlock(const string &sharedConfigText)
+{
 
-string CloudDisabler::deleteAppsBlock(const string &sharedConfigText){
-
-  	string line;
+    string line;
     stringstream buffer;
-	stringstream sharedConfigTextStream(sharedConfigText);
+    stringstream sharedConfigTextStream(sharedConfigText);
 
-	while(getline(sharedConfigTextStream, line)){
-	if(line == "\"apps\""){
-	skip = true;
-	
-	}
-	if(!skip){
-	buffer << line << endl;
-	}
-	if(skip && line == "\t\t\t\t}"){
-	skip = false;
-	}
+    while (getline(sharedConfigTextStream, line))
+    {
+        bool skip;
+        if (line == "\t\t\t\t\"apps\"")
+        {
+            skip = true;
+        }
+        if (!skip)
+        {
+            buffer << line << endl;
+        }
+        if (skip && line == "\t\t\t\t}")
+        {
+            skip = false;
+        }
+    }
 
-
-
-	}
-	
-	return buffer;
-	
+    return buffer.str();
 }
 
 string CloudDisabler::createAppsBlock(const string &sharedConfigText)
@@ -121,13 +121,13 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 {
     string newConfig = sharedConfigText;
 
-    if(checkAppsBlock(sharedConfigText){
-
-        newConfig = deleteAppsBlock(sharedConfigText);
-
-    }else{
+    if (checkAppsBlock(sharedConfigText))
+    {
+        newConfig = createAppsBlock(deleteAppsBlock(sharedConfigText));
+    }
+    else
+    {
         newConfig = createAppsBlock(sharedConfigText);
-
     }
 
     string line;
@@ -137,7 +137,6 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 
     while (getline(sharedConfigTextStream, line))
     {
-
         if (getline(sharedConfigTextStream, nextLine))
         {
 

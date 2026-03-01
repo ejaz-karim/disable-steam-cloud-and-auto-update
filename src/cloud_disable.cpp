@@ -134,6 +134,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
     string nextLine;
     stringstream buffer;
     stringstream sharedConfigTextStream(newConfig);
+    int gameCount = 0;
 
     while (getline(sharedConfigTextStream, line))
     {
@@ -154,6 +155,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                     buffer << "\t\t\t\t\t{" << endl;
                     buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
                     buffer << "\t\t\t\t\t}" << endl;
+                    gameCount++;
                 }
             }
         }
@@ -173,6 +175,9 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
 
     sharedConfigFile << buffer.str();
     sharedConfigFile.close();
+
+    cout << ">Modified: " << sharedConfigPath << endl;
+    cout << ">Cloud disabled for " << gameCount << " games" << endl;
 
     return true;
 }

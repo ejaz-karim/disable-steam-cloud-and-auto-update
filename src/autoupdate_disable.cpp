@@ -32,6 +32,8 @@ string AutoUpdateDisabler::replaceStateFlags()
 
 bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
 {
+    int modifiedCount = 0;
+
     for (const auto &entry : fs::directory_iterator(steamAppsDirectory))
     {
         if (fs::is_regular_file(entry.status()) && entry.path().extension() == ".acf")
@@ -65,7 +67,12 @@ bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
             }
             file_of << buffer.str();
             file_of.close();
+
+            cout << ">Modified: " << entry.path().filename().string() << endl;
+            modifiedCount++;
         }
     }
+
+    cout << ">Total .acf files modified: " << modifiedCount << endl;
     return true;
 }

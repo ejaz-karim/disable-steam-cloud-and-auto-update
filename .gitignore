@@ -3,8 +3,8 @@
 *.vdf
 *.acf
 
-# Created by https://www.toptal.com/developers/gitignore/api/c++,xmake,visualstudiocode,windows,linux
-# Edit at https://www.toptal.com/developers/gitignore?templates=c++,xmake,visualstudiocode,windows,linux
+# Created by https://www.toptal.com/developers/gitignore/api/c++,linux,windows,visualstudiocode,zig
+# Edit at https://www.toptal.com/developers/gitignore?templates=c++,linux,windows,visualstudiocode,zig
 
 ### C++ ###
 # Prerequisites
@@ -100,9 +100,13 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-### xmake ###
-# Xmake cache
-.xmake/
-build/
+### zig ###
+# Zig programming language
 
-# End of https://www.toptal.com/developers/gitignore/api/c++,xmake,visualstudiocode,windows,linux
+*zig-cache/
+zig-out/
+build/
+build-*/
+docgen_tmp/
+
+# End of https://www.toptal.com/developers/gitignore/api/c++,linux,windows,visualstudiocode,zig

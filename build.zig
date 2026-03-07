@@ -1,13 +1,21 @@
 const std = @import("std");
 
-const targets: []const std.Target.Query = &.{
+const release_targets: []const std.Target.Query = &.{
     .{ .cpu_arch = .x86_64, .os_tag = .windows },
-    .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu },
-    .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu },
+    .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .musl },
+    .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .musl },
+};
+
+const src_files: []const []const u8 = &.{
+    "src/api.cpp",
+    "src/autoupdate_disable.cpp",
+    "src/cloud_disable.cpp",
+    "src/main.cpp",
+    "src/utility.cpp",
 };
 
 pub fn build(b: *std.Build) void {
-    for (targets) |t| {
+    for (release_targets) |t| {
         const exe = b.addExecutable(.{
             .name = "disable-steam-cloud-and-auto-update",
             .root_module = b.createModule(.{
@@ -20,19 +28,13 @@ pub fn build(b: *std.Build) void {
         });
 
         exe.root_module.addCSourceFiles(.{
-            .files = &.{
-                "src/api.cpp",
-                "src/autoupdate_disable.cpp",
-                "src/cloud_disable.cpp",
-                "src/main.cpp",
-                "src/utility.cpp",
-            },
+            .files = src_files,
             .flags = &.{"-std=c++17"},
         });
 
         exe.root_module.addIncludePath(b.path("include"));
 
-        const target_output = b.addInstallArtifact(exe, .{
+        const install = b.addInstallArtifact(exe, .{
             .dest_dir = .{
                 .override = .{
                     .custom = b.fmt("{s}-{s}", .{
@@ -43,6 +45,6 @@ pub fn build(b: *std.Build) void {
             },
         });
 
-        b.getInstallStep().dependOn(&target_output.step);
+        b.getInstallStep().dependOn(&install.step);
     }
 }

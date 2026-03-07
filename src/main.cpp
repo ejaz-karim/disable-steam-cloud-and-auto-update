@@ -1,135 +1,95 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
-#include <algorithm>
 #include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "disable-steam-cloud-and-auto-update/cloud_disable.hpp"
 #include "disable-steam-cloud-and-auto-update/autoupdate_disable.hpp"
 #include "disable-steam-cloud-and-auto-update/utility.hpp"
-#include "disable-steam-cloud-and-auto-update/api.hpp"
 
 using namespace std;
 
 int main()
 {
+#ifdef _WIN32
+    SetConsoleTitleA("disable-steam-cloud-and-auto-update");
+#endif
+
     try
     {
+        FileUtility fileUtility;
+        string steamRoot = fileUtility.resolveSteamRoot();
+        string userDataPath = steamRoot + "/userdata";
+        string steamAppsPath = steamRoot + "/steamapps";
+
         while (true)
         {
-            cout << ">Enter 1 to disable Steam Cloud" << endl;
-            cout << ">Enter 2 to disable Auto-updates" << endl;
+            cout << endl;
+            cout << ">Enter 0 to change Steam directory" << endl;
+            cout << ">Enter 1 to disable Steam Cloud for all games (per-game settings)" << endl;
+            cout << ">Enter 2 to disable Auto-updates and Unschedule all game and Workshop updates" << endl;
+            cout << ">Enter 3 to exit" << endl;
             cout << ">Select your option: " << endl;
             string input;
+            cout << ">";
             getline(cin, input);
-            if (input == "1")
+            cout << endl;
+
+            if (input == "0")
             {
-                FileUtility fileUtility;
+                steamRoot = fileUtility.promptSteamRoot();
+                userDataPath = steamRoot + "/userdata";
+                steamAppsPath = steamRoot + "/steamapps";
+                cout << ">Steam directory updated to: " << steamRoot << endl;
+            }
+            else if (input == "1")
+            {
                 CloudDisabler cloudDisabler;
-                // Api api;
+                string acfIds = fileUtility.getAcfID(steamAppsPath);
 
-                string userDataPath = "C:/Program Files (x86)/Steam/userdata";
-                string steamAppsPath = "C:/Program Files (x86)/Steam/steamapps";
-
-                if (fileUtility.checkPathExists(userDataPath) && fileUtility.checkPathExists(steamAppsPath))
+                if (acfIds.empty())
                 {
-                    string library_file = steamAppsPath + "/libraryfolders.vdf";
-                    string library_content = fileUtility.readFileContents(library_file);
-                    string acfIds = fileUtility.getAcfID(steamAppsPath);
+                    cout << ">There are no games in your steamapps folder" << endl;
+                    continue;
+                }
 
-                    for (const auto &entry : filesystem::directory_iterator(userDataPath))
+                for (const auto &entry : filesystem::directory_iterator(userDataPath))
+                {
+                    if (entry.is_directory())
                     {
-                        if (entry.is_directory())
+                        string steamID = entry.path().string();
+                        replace(steamID.begin(), steamID.end(), '\\', '/');
+                        
+                        string remotePath = steamID + "/7/remote";
+                        if (filesystem::exists(remotePath))
                         {
-                            string steamID = entry.path().string();
-                            string remotePath = steamID + "/7/remote";
-                            if (filesystem::exists(remotePath))
+                            string sharedConfigPath = remotePath + "/sharedconfig.vdf";
+                            if (filesystem::exists(sharedConfigPath))
                             {
-                                string sharedConfigPath = remotePath + "/sharedconfig.vdf";
                                 string sharedConfigText = fileUtility.readFileContents(sharedConfigPath);
-
-                                if (!acfIds.empty())
-                                {
-                                    if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigText, acfIds))
-                                    {
-                                        cout << ">Success" << endl;
-                                    }
-                                }
-                                else
-                                {
-                                    cout << ">There are no games in your steamapps folder" << endl;
-                                }
-                            }
-                            else
-                            {
-                                cout << "Could not find expected /remote/ folder given this path: " << remotePath << endl;
+                                cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigText, acfIds);
                             }
                         }
                     }
-
-                    break;
                 }
-                else
-                {
-                    string sharedconfig_directory = fileUtility.getDirectory("\n>Enter directory for sharedconfig.vdf:\nExample: C:/Program Files (x86)/Steam/userdata/STEAM ID/7/remote");
-                    string sharedConfigPath = sharedconfig_directory + "/sharedconfig.vdf";
 
-                    string library_directory = fileUtility.getDirectory("\n>Enter directory for libraryfolders.vdf:\nExample: C:/Program Files (x86)/Steam/steamapps");
-                    string library_file = library_directory + "/libraryfolders.vdf";
-
-                    string sharedConfigText = fileUtility.readFileContents(sharedConfigPath);
-                    string library_content = fileUtility.readFileContents(library_file);
-
-                    string acfIds = fileUtility.getAcfID(steamAppsPath);
-
-                    // stringstream appIdsNoQuotes = api.removeQuotes(game_ids);
-                    // apiRequest(appIdsNoQuotes);
-
-                    if (!acfIds.empty())
-                    {
-                        if (cloudDisabler.replaceAppsBlock(sharedConfigPath, sharedConfigText, acfIds))
-                        {
-                            cout << ">Success" << endl;
-                        }
-                    }
-                    break;
-                }
+                cout << ">Success" << endl;
             }
             else if (input == "2")
             {
-                FileUtility fileUtility;
                 AutoUpdateDisabler autoUpdateDisabler;
-
-                string steamAppsPath = "C:\\Program Files (x86)/Steam/steamapps";
-
-                if (fileUtility.checkPathExists(steamAppsPath))
-                {
-                    bool iterateSteamAppsPath = autoUpdateDisabler.iterateSteamApps(steamAppsPath);
-                    if (iterateSteamAppsPath)
-                    {
-                        cout << ">Success" << endl;
-                    }
-                }
-                else
-                {
-                    cout << "Could not find Steam directory in Program Files (x86)\n"
-                         << endl;
-                    string manualSteamAppsPath = fileUtility.getDirectory(">Enter directory for /Steam/steamapps/ :\n");
-                    bool iterateManualPath = autoUpdateDisabler.iterateSteamApps(manualSteamAppsPath);
-                    if (iterateManualPath)
-                    {
-                        cout << ">Success" << endl;
-                    }
-                }
+                autoUpdateDisabler.iterateSteamApps(steamAppsPath);
+                cout << ">Success" << endl;
+            }
+            else if (input == "3")
+            {
                 break;
             }
             else
             {
-                cout << "\n>Invalid input\n"
-                     << endl;
+                cout << ">Invalid input" << endl;
             }
         }
-        cout << ">Press ENTER to exit..." << endl;
-        getchar();
     }
     catch (const exception &e)
     {

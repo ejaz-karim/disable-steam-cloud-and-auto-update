@@ -9,9 +9,10 @@ class FileUtility
 {
 public:
     FileUtility();
-    std::string getDirectory(const std::string &prompt);
     std::string readFileContents(const std::string &filePath);
-    bool checkPathExists(const std::string &path);
     std::string getAcfID(const std::string &path);
-    std::stringstream removeQuotes(const std::string &game_ids);
+    std::string resolveSteamRoot();
+    std::string promptSteamRoot();
+    void saveSteamRoot(const std::string &path);
+    std::string loadSteamRoot();
 };

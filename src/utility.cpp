@@ -10,26 +10,6 @@ using namespace std;
 
 FileUtility::FileUtility() {}
 
-string FileUtility::getDirectory(const string &prompt)
-{
-    while (true)
-    {
-        string directory;
-        cout << prompt;
-        getline(cin, directory);
-
-        if (filesystem::exists(directory))
-        {
-            replace(directory.begin(), directory.end(), '\\', '/');
-            return directory;
-        }
-        else
-        {
-            cout << ">The directory you entered doesn't exist. Please try again." << endl;
-        }
-    }
-}
-
 string FileUtility::readFileContents(const string &filePath)
 {
     ifstream file(filePath);
@@ -43,10 +23,6 @@ string FileUtility::readFileContents(const string &filePath)
     return buffer.str();
 }
 
-bool FileUtility::checkPathExists(const string &path)
-{
-    return filesystem::exists(path);
-}
 
 // Get all game ids from the .acf file names in /steamapps/
 string FileUtility::getAcfID(const string &path)
@@ -78,16 +54,78 @@ string FileUtility::getAcfID(const string &path)
     return buffer.str();
 }
 
-stringstream FileUtility::removeQuotes(const string &game_ids)
+
+string FileUtility::loadSteamRoot()
 {
-    stringstream ss(game_ids);
-    string line;
-    stringstream noQuotes;
-    while (getline(ss, line))
+    ifstream file("steam_path.cfg");
+    if (file)
     {
-        line.erase(line.find_first_of('"'), 1);
-        line.erase(line.find_last_of('"'), 1);
-        noQuotes << line << endl;
+        string path;
+        getline(file, path);
+        file.close();
+        if (!path.empty() && filesystem::exists(path))
+        {
+            return path;
+        }
     }
-    return noQuotes;
+    return "";
+}
+
+void FileUtility::saveSteamRoot(const string &path)
+{
+    ofstream file("steam_path.cfg", ios::trunc);
+    if (file)
+    {
+        file << path;
+        file.close();
+    }
+}
+
+string FileUtility::promptSteamRoot()
+{
+    while (true)
+    {
+        string root;
+        cout << ">Enter the path to your Steam root folder: " << endl;
+        cout << ">Example: C:/Program Files (x86)/Steam" << endl;
+        cout << ">";
+        getline(cin, root);
+        cout << endl;
+
+        replace(root.begin(), root.end(), '\\', '/');
+
+        if (filesystem::exists(root + "/userdata") && filesystem::exists(root + "/steamapps"))
+        {
+            saveSteamRoot(root);
+            cout << ">Steam path saved to steam_path.cfg" << endl;
+            return root;
+        }
+        else
+        {
+            cout << ">Invalid Steam directory. Expected /userdata/ and /steamapps/ folders inside it." << endl;
+        }
+    }
+}
+
+string FileUtility::resolveSteamRoot()
+{
+    // 1. Saved config takes priority
+    string saved = loadSteamRoot();
+    if (!saved.empty())
+    {
+        cout << ">Using saved Steam path: " << saved << endl;
+        return saved;
+    }
+
+    // 2. Check default Windows path
+    string defaultPath = "C:/Program Files (x86)/Steam";
+    if (filesystem::exists(defaultPath + "/userdata") && filesystem::exists(defaultPath + "/steamapps"))
+    {
+        cout << ">Found Steam at: " << defaultPath << endl;
+        return defaultPath;
+    }
+
+    // 3. Prompt the user
+    cout << ">Could not find Steam root folder" << endl;
+    return promptSteamRoot();
 }

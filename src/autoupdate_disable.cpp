@@ -68,11 +68,13 @@ bool AutoUpdateDisabler::iterateSteamApps(const string &steamAppsDirectory)
             file_of << buffer.str();
             file_of.close();
 
-            cout << ">Modified: " << entry.path().filename().string() << endl;
+            string outPath = entry.path().filename().string();
+            replace(outPath.begin(), outPath.end(), '\\', '/');
+            cout << ">Modified: " << outPath << endl;
             modifiedCount++;
         }
     }
 
-    cout << ">Total .acf files modified: " << modifiedCount << endl;
+    cout << ">Auto-update disabled for " << modifiedCount << " games" << endl;
     return true;
 }

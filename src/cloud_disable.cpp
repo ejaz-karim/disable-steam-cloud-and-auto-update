@@ -22,9 +22,9 @@ string CloudDisabler::deleteAppsBlock(const string &sharedConfigText)
     stringstream buffer;
     stringstream sharedConfigTextStream(sharedConfigText);
 
+    bool skip = false;
     while (getline(sharedConfigTextStream, line))
     {
-        bool skip;
         if (line == "\t\t\t\t\"apps\"")
         {
             skip = true;
@@ -155,7 +155,7 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                 {
                     buffer << "\t\t\t\t\t" + id << endl;
                     buffer << "\t\t\t\t\t{" << endl;
-                    buffer << "\t\t\t\t\t\t\"CloudEnabled\"\t\t\"0\"" << endl;
+                    buffer << "\t\t\t\t\t\t\"cloudenabled\"\t\t\"0\"" << endl;
                     buffer << "\t\t\t\t\t}" << endl;
                     gameCount++;
                 }

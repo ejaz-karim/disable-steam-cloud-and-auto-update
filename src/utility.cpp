@@ -47,6 +47,7 @@ vector<int> FileUtility::getAcfID(const string &path)
 string FileUtility::sortAcfID(vector<int> &intVector)
 {
     sort(intVector.begin(), intVector.end());
+    intVector.erase(unique(intVector.begin(), intVector.end()), intVector.end());
     stringstream buffer;
 
     for (auto &entry : intVector)
@@ -98,38 +99,159 @@ string FileUtility::promptSteamRoot()
 
         replace(root.begin(), root.end(), '\\', '/');
 
-        if (filesystem::exists(root + "/userdata") && filesystem::exists(root + "/steamapps"))
+        if (filesystem::is_regular_file(root + "/steam.exe"))
         {
             saveSteamRoot(root);
             cout << ">Steam path saved to steam_path.cfg" << endl;
             return root;
         }
+        else if (filesystem::is_regular_file(root + "/steam.dll") || filesystem::is_directory(root + "/steamapps"))
+        {
+            string resolvedRoot = resolveMainRootFromLibraryDirectory(root);
+            if (!resolvedRoot.empty() && filesystem::is_regular_file(resolvedRoot + "/steam.exe"))
+            {
+                saveSteamRoot(resolvedRoot);
+                cout << ">Steam path saved to steam_path.cfg" << endl;
+                return resolvedRoot;
+            }
+            else
+            {
+                cout << ">Could not resolve main Steam root from library directory. Make sure Steam is installed." << endl;
+            }
+        }
         else
         {
-            cout << ">Invalid Steam directory. Expected /userdata/ and /steamapps/ folders inside it." << endl;
+            cout << ">Invalid Steam directory. Could not find steam.exe, steam.dll, or steamapps/." << endl;
         }
     }
 }
 
 string FileUtility::resolveSteamRoot()
 {
+    string root;
     // 1. Saved config takes priority
     string saved = loadSteamRoot();
-    if (!saved.empty())
+    if (!saved.empty() && filesystem::is_regular_file(saved + "/steam.exe"))
     {
         cout << ">Using saved Steam path: " << saved << endl;
-        return saved;
+        root = saved;
     }
-
-    // 2. Check default Windows path
-    string defaultPath = "C:/Program Files (x86)/Steam";
-    if (filesystem::exists(defaultPath + "/userdata") && filesystem::exists(defaultPath + "/steamapps"))
+    else
     {
-        cout << ">Found Steam at: " << defaultPath << endl;
-        return defaultPath;
+        // 2. Check default Windows path
+        string defaultPath = "C:/Program Files (x86)/Steam";
+        if (filesystem::is_regular_file(defaultPath + "/steam.exe"))
+        {
+            cout << ">Found Steam at: " << defaultPath << endl;
+            root = defaultPath;
+        }
+        else
+        {
+            // 3. Prompt the user
+            cout << ">Could not find Steam root folder" << endl;
+            root = promptSteamRoot();
+        }
     }
 
-    // 3. Prompt the user
-    cout << ">Could not find Steam root folder" << endl;
-    return promptSteamRoot();
+    vector<string> libraries = parseLibraryFolders(root);
+    cout << ">Detected Library Folders:" << endl;
+    for (const string& lib : libraries) {
+        cout << ">" << lib << endl;
+    }
+
+    return root;
+}
+
+vector<string> FileUtility::parseLibraryFolders(const string &steamRoot)
+{
+    vector<string> paths;
+    paths.push_back(steamRoot);
+
+    string vdfPath = steamRoot + "/steamapps/libraryfolders.vdf";
+    if (filesystem::exists(vdfPath))
+    {
+        ifstream file(vdfPath);
+        if (file)
+        {
+            string line;
+            while (getline(file, line))
+            {
+                if (line.find("\"path\"") != string::npos)
+                {
+                    size_t firstQuote = line.find('"', line.find("\"path\"") + 6);
+                    if (firstQuote != string::npos)
+                    {
+                        size_t secondQuote = line.find('"', firstQuote + 1);
+                        if (secondQuote != string::npos)
+                        {
+                            string path = line.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+                            replace(path.begin(), path.end(), '\\', '/');
+                            size_t pos;
+                            while ((pos = path.find("//")) != string::npos) {
+                                path.replace(pos, 2, "/");
+                            }
+                            if (path != steamRoot && find(paths.begin(), paths.end(), path) == paths.end()) {
+                                paths.push_back(path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return paths;
+}
+
+string FileUtility::resolveMainRootFromLibraryDirectory(const string &path)
+{
+    string vdfPaths[] = {
+        path + "/libraryfolder.vdf",
+        path + "/libraryfolders.vdf",
+        path + "/steamapps/libraryfolder.vdf",
+        path + "/steamapps/libraryfolders.vdf"
+    };
+
+    string foundVdf = "";
+    for (const string& p : vdfPaths) {
+        if (filesystem::exists(p)) {
+            foundVdf = p;
+            break;
+        }
+    }
+
+    if (!foundVdf.empty())
+    {
+        ifstream file(foundVdf);
+        if (file)
+        {
+            string line;
+            while (getline(file, line))
+            {
+                if (line.find("\"launcher\"") != string::npos)
+                {
+                    size_t firstQuote = line.find('"', line.find("\"launcher\"") + 10);
+                    if (firstQuote != string::npos)
+                    {
+                        size_t secondQuote = line.find('"', firstQuote + 1);
+                        if (secondQuote != string::npos)
+                        {
+                            string launcherPath = line.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+                            replace(launcherPath.begin(), launcherPath.end(), '\\', '/');
+                            size_t pos;
+                            while ((pos = launcherPath.find("//")) != string::npos) {
+                                launcherPath.replace(pos, 2, "/");
+                            }
+                            
+                            size_t lastSlash = launcherPath.find_last_of('/');
+                            if (lastSlash != string::npos)
+                            {
+                                return launcherPath.substr(0, lastSlash);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return "";
 }

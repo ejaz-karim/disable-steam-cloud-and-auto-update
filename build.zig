@@ -2,9 +2,9 @@ const std = @import("std");
 
 const targets: []const std.Target.Query = &.{
     .{ .os_tag = .windows, .cpu_arch = .x86_64, .abi = .gnu },
-    .{ .os_tag = .windows, .cpu_arch = .aarch64, .abi = .gnu },
-    .{ .os_tag = .linux, .cpu_arch = .x86_64, .abi = .musl },
-    .{ .os_tag = .linux, .cpu_arch = .aarch64, .abi = .musl },
+    // .{ .os_tag = .windows, .cpu_arch = .aarch64, .abi = .gnu },
+    // .{ .os_tag = .linux, .cpu_arch = .x86_64, .abi = .musl },
+    // .{ .os_tag = .linux, .cpu_arch = .aarch64, .abi = .musl },
 };
 
 pub fn build(b: *std.Build) void {

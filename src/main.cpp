@@ -20,7 +20,7 @@ int main()
         FileUtility fileUtility;
         string steamRoot = fileUtility.resolveSteamRoot();
         string userDataPath = steamRoot + "/userdata";
-        string steamAppsPath = steamRoot + "/steamapps";
+        vector<string> libraryPaths = fileUtility.parseLibraryFolders(steamRoot);
 
         while (true)
         {
@@ -39,16 +39,24 @@ int main()
             {
                 steamRoot = fileUtility.promptSteamRoot();
                 userDataPath = steamRoot + "/userdata";
-                steamAppsPath = steamRoot + "/steamapps";
+                libraryPaths = fileUtility.parseLibraryFolders(steamRoot);
                 cout << ">Steam directory updated to: " << steamRoot << endl;
             }
             else if (input == "1")
             {
-                vector<int> vectorAcfIds = fileUtility.getAcfID(steamAppsPath);
-                string acfIds = fileUtility.sortAcfID(vectorAcfIds);
+                vector<int> combinedAcfIds;
+                for (const string& lib : libraryPaths) {
+                    string sAppsPath = lib + "/steamapps";
+                    if (filesystem::exists(sAppsPath)) {
+                        vector<int> ids = fileUtility.getAcfID(sAppsPath);
+                        combinedAcfIds.insert(combinedAcfIds.end(), ids.begin(), ids.end());
+                    }
+                }
+
+                string acfIds = fileUtility.sortAcfID(combinedAcfIds);
                 if (acfIds.empty())
                 {
-                    cout << ">There are no games in your steamapps folder" << endl;
+                    cout << ">There are no games in your steamapps folders" << endl;
                     continue;
                 }
                 
@@ -58,16 +66,23 @@ int main()
             }
             else if (input == "2")
             {
-                vector<int> vectorAcfIds = fileUtility.getAcfID(steamAppsPath);
-                string acfIds = fileUtility.sortAcfID(vectorAcfIds);
-                if (acfIds.empty())
+                bool foundAny = false;
+                AutoUpdateDisabler autoUpdateDisabler;
+                
+                for (const string& lib : libraryPaths) {
+                    string sAppsPath = lib + "/steamapps";
+                    if (filesystem::exists(sAppsPath)) {
+                        cout << ">Processing directory: " << sAppsPath << endl;
+                        autoUpdateDisabler.iterateSteamApps(sAppsPath);
+                        foundAny = true;
+                    }
+                }
+                
+                if (!foundAny)
                 {
-                    cout << ">There are no games in your steamapps folder" << endl;
+                    cout << ">There are no games in your steamapps folders" << endl;
                     continue;
                 }
-
-                AutoUpdateDisabler autoUpdateDisabler;
-                autoUpdateDisabler.iterateSteamApps(steamAppsPath);
                 cout << ">Success" << endl;
             }
             else if (input == "3")

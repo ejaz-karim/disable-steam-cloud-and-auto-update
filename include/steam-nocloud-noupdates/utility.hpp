@@ -17,4 +17,6 @@ public:
     std::string promptSteamRoot();
     void saveSteamRoot(const std::string &path);
     std::string loadSteamRoot();
+    std::vector<std::string> parseLibraryFolders(const std::string &steamRoot);
+    std::string resolveMainRootFromLibraryDirectory(const std::string &path);
 };

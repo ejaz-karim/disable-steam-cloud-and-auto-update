@@ -3,67 +3,14 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <vector>
 #include "steam-nocloud-noupdates/cloud_disable.hpp"
 #include "steam-nocloud-noupdates/utility.hpp"
-
 using namespace std;
-
-// ---------------------------------------------------------------------------
-// A robust parser and normalizer for messily-formatted sharedconfig.vdf files.
-//
-// Real Steam configs are rarely clean. Some hold the Steam settings inside a
-// UserRoamingConfigStore block; some also contain stray "Software" blocks (a
-// duplicate) that Steam wrote as siblings - nested inside the roam, or even at
-// top level. We must NEVER duplicate the Steam data again.
-//
-// What we do:
-//   1. Parse the whole file into a tree of blocks (quote-aware, so braces
-//      inside FriendsUIJSON values do not confuse us).
-//   2. Locate ALL real "Steam" blocks (real = a block, not a "Steam" "1" leaf).
-//      The canonical one is preferred under UserRoamingConfigStore, then under
-//      a Software block, then the first one found.
-//   3. Merge unique settings from every stray Steam block into the canonical
-//      one and drop the strays (fixes Steam-in-Steam, split top/bottom files).
-//   4. Drop stray "apps" blocks that are not inside the canonical Steam.
-//   5. Force the OUTER "CloudEnabled" (a direct child of Steam) to "0" and
-//      rebuild the per-game "apps" block from the ACF ids, each "0".
-//   6. Prune container blocks (valve/Software) that became empty.
-//   7. Emit ONE canonical structure:
-//
-//        UserRoamingConfigStore
-//        {
-//            Software
-//            {
-//                valve
-//                {
-//                    Steam
-//                    {
-//                        CloudEnabled  "0"
-//                        ... preserved Steam settings ...
-//                        apps { <rebuilt> }
-//                    }
-//                }
-//            }
-//            ... preserved root-level keys (JSClientStorage, PlaySoundOnToast) ...
-//        }
-//
-//   8. If the input has no UserRoamingConfigStore, one is built and all
-//      preserved content is folded in (Steam-level settings such as friendsui,
-//      SurveyDate go inside Steam; the rest stays at root level).
-//
-// Everything we don't explicitly touch is preserved verbatim, so indentation,
-// EOL style, spacing, comments and JSON braces survive unchanged.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Small text helpers.
-// ---------------------------------------------------------------------------
 namespace
 {
-
-// Trim leading/trailing whitespace.
 string trimS(const string &s)
 {
     size_t b = s.find_first_not_of(" \t\r\n");
@@ -72,8 +19,6 @@ string trimS(const string &s)
         return "";
     return s.substr(b, e - b + 1);
 }
-
-// Leading whitespace of a line.
 string indentOf(const string &s)
 {
     size_t b = s.find_first_not_of(" \t");
@@ -81,14 +26,9 @@ string indentOf(const string &s)
         return s;
     return s.substr(0, b);
 }
-
-// Read a quoted string starting at s[i] ('"'). Advances i past the closing
-// quote and returns the DECODED contents (\\" becomes ", \\\\ becomes \\).
-// Sets `terminated` to false if the closing quote was missing (end of line /
-// input reached) - the caller may then close it to keep the output valid.
 string readQuoted(const string &s, size_t &i, bool &terminated)
 {
-    size_t q1 = i; // opening quote
+    size_t q1 = i;
     size_t q2 = q1 + 1;
     while (q2 < s.size())
     {
@@ -104,7 +44,6 @@ string readQuoted(const string &s, size_t &i, bool &terminated)
     terminated = (q2 < s.size());
     string raw = s.substr(q1 + 1, (q2 < s.size() ? q2 : s.size()) - q1 - 1);
     i = (q2 < s.size()) ? q2 + 1 : s.size();
-
     string decoded;
     for (size_t k = 0; k < raw.size(); ++k)
     {
@@ -120,24 +59,18 @@ string readQuoted(const string &s, size_t &i, bool &terminated)
     }
     return decoded;
 }
-
-// Append a closing '"' to a raw span, first neutralizing a trailing backslash
-// so the quote is not swallowed as an escape sequence (which would leave the
-// string unterminated).
 string appendClosingQuote(const string &s)
 {
     size_t k = s.size();
     while (k > 0 && s[k - 1] == '\\')
         --k;
-    size_t nbs = s.size() - k; // trailing backslash run
+    size_t nbs = s.size() - k;
     string out = s;
     if (nbs % 2 == 1)
-        out += '\\'; // make the run even so the quote actually closes
+        out += '\\';
     out += '"';
     return out;
 }
-
-// Case-insensitive comparison.
 bool ieq(const string &a, const string &b)
 {
     if (a.size() != b.size())
@@ -147,27 +80,65 @@ bool ieq(const string &a, const string &b)
             return false;
     return true;
 }
-
-// Split into physical lines, keeping each line's trailing newline. Handles LF,
-// CRLF, and lone-CR (classic-Mac) line endings so a CR-only file still parses
-// into proper lines.
+bool isMangledOf(const string &name, const string &target, int maxEdits = -1)
+{
+    if (ieq(name, target))
+        return true;
+    if (name.size() < 2 || target.size() < 3)
+        return false;
+    int cap = (maxEdits >= 0) ? maxEdits :
+               (target.size() > 14 ? 3 : (target.size() >= 8 ? 2 : 1));
+    if (abs((int)name.size() - (int)target.size()) > cap)
+        return false;
+    string a = name, b = target;
+    for (auto &c : a) c = (char)tolower((unsigned char)c);
+    for (auto &c : b) c = (char)tolower((unsigned char)c);
+    size_t n = a.size(), m = b.size();
+    if (n + 1 > 32 || m + 1 > 32)
+        return false;
+    vector<int> prev(m + 1), cur(m + 1);
+    for (size_t j = 0; j <= m; ++j) prev[j] = (int)j;
+    for (size_t i = 1; i <= n; ++i)
+    {
+        cur[0] = (int)i;
+        for (size_t j = 1; j <= m; ++j)
+        {
+            int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+            cur[j] = min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost});
+        }
+        swap(prev, cur);
+    }
+    return prev[m] <= cap;
+}
+bool isDeletionOf(const string &name, const string &target, size_t maxDeleted = 3)
+{
+    if (ieq(name, target))
+        return true;
+    if (name.size() < 2 || target.size() < 3 || name.size() > target.size())
+        return false;
+    if (target.size() - name.size() > maxDeleted)
+        return false;
+    size_t i = 0, j = 0;
+    while (i < name.size() && j < target.size())
+    {
+        if (tolower((unsigned char)name[i]) == tolower((unsigned char)target[j]))
+            ++i;
+        ++j;
+    }
+    return i == name.size();
+}
 vector<string> splitKeepingNewlines(const string &text)
 {
     vector<string> out;
     size_t start = 0;
     while (start < text.size())
     {
-        // find_first_of scans once for the nearest line ending (either CR or
-        // LF). Two separate find() calls here would be O(n^2) on LF-only or
-        // CR-only files, because the absent character is re-scanned to the end
-        // of the buffer for every line.
         size_t end = text.find_first_of("\r\n", start);
         if (end == string::npos)
         {
             out.push_back(text.substr(start));
             break;
         }
-        // Include a full CRLF pair as one line ending.
         size_t after = end + 1;
         if (text[end] == '\r' && after < text.size() && text[after] == '\n')
             after++;
@@ -176,47 +147,33 @@ vector<string> splitKeepingNewlines(const string &text)
     }
     return out;
 }
-
-// Detect EOL style so generated lines match the file.
 string detectEol(const string &text)
 {
     return text.find("\r\n") != string::npos ? "\r\n" : "\n";
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// Tokenization.
-// ---------------------------------------------------------------------------
+}
 namespace
 {
-
 enum TokKind
 {
-    TK_RAW,   // blank / comment / unparsed
-    TK_OPEN,  // bare "{"
-    TK_CLOSE, // bare "}"
-    TK_NAME,  // lone "Name" (potential block header)
-    TK_LEAF   // "Name" "Value..."
+    TK_RAW,
+    TK_OPEN,
+    TK_CLOSE,
+    TK_NAME,
+    TK_LEAF
 };
-
 struct Tok
 {
     TokKind kind;
-    string raw; // original raw line (with trailing newline)
-    string key; // decoded first quoted name
+    string raw;
+    string key;
 };
-
-// Tokenize one physical line (no trailing newline) into one or more tokens.
-// Whitespace between tokens is attached to the FOLLOWING token's raw text, so
-// rendering all raws reproduces the original line byte-for-byte.
 vector<Tok> scanLine(const string &body)
 {
     vector<Tok> out;
     size_t n = body.size();
-    size_t tokStart = 0; // raw span start for the token being built
+    size_t tokStart = 0;
     size_t i = 0;
-
     auto emit = [&](TokKind k, const string &key, size_t end) {
         Tok t;
         t.kind = k;
@@ -225,7 +182,6 @@ vector<Tok> scanLine(const string &body)
         out.push_back(std::move(t));
         tokStart = end;
     };
-
     while (i < n)
     {
         char c = body[i];
@@ -238,7 +194,6 @@ vector<Tok> scanLine(const string &body)
         {
             bool keyTerm = true;
             string key = readQuoted(body, i, keyTerm);
-            // Look ahead: if a quoted value follows, this is a key-value leaf.
             size_t j = i;
             while (j < n && (body[j] == ' ' || body[j] == '\t' || body[j] == '\r'))
                 j++;
@@ -246,7 +201,7 @@ vector<Tok> scanLine(const string &body)
             {
                 bool valTerm = true;
                 i = j;
-                readQuoted(body, i, valTerm); // value (discarded; raw preserves it)
+                readQuoted(body, i, valTerm);
                 emit(TK_LEAF, key, i);
                 if (!valTerm)
                     out.back().raw = appendClosingQuote(out.back().raw);
@@ -261,21 +216,18 @@ vector<Tok> scanLine(const string &body)
         }
         else
         {
-            // Raw run (junk, comments mid-line, etc.) up to the next token.
             size_t j = i;
             while (j < n && body[j] != '"' && body[j] != '{' && body[j] != '}')
                 j++;
             if (body.substr(i, j - i).find_first_not_of(" \t\r") != string::npos)
                 emit(TK_RAW, "", j);
-            // else: pure whitespace; the next token picks it up via tokStart
             i = j;
         }
     }
     if (tokStart < n)
-        emit(TK_RAW, "", n); // trailing whitespace
+        emit(TK_RAW, "", n);
     return out;
 }
-
 vector<Tok> tokenize(const vector<string> &physical)
 {
     vector<Tok> out;
@@ -283,7 +235,7 @@ vector<Tok> tokenize(const vector<string> &physical)
     for (const auto &rawLine : physical)
     {
         string body = rawLine;
-        string nl; // original line ending, re-attached to the last token
+        string nl;
         if (!body.empty() && body.back() == '\n')
         {
             nl = "\n";
@@ -296,13 +248,10 @@ vector<Tok> tokenize(const vector<string> &physical)
         }
         else if (!body.empty() && body.back() == '\r')
         {
-            nl = "\r"; // lone-CR line ending (classic Mac)
+            nl = "\r";
             body.pop_back();
         }
-
         string t = trimS(body);
-
-        // Comment lines (//...) are raw text even if they contain quotes/braces.
         if (t.size() >= 2 && t[0] == '/' && t[1] == '/')
         {
             Tok tk;
@@ -312,7 +261,6 @@ vector<Tok> tokenize(const vector<string> &physical)
             out.push_back(std::move(tk));
             continue;
         }
-
         vector<Tok> line = scanLine(body);
         if (!line.empty())
         {
@@ -325,31 +273,24 @@ vector<Tok> tokenize(const vector<string> &physical)
             Tok tk;
             tk.kind = TK_RAW;
             tk.key = "";
-            tk.raw = rawLine; // blank line, preserved verbatim
+            tk.raw = rawLine;
             out.push_back(std::move(tk));
         }
     }
     return out;
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// Tree representation and rendering.
-// ---------------------------------------------------------------------------
+}
 struct Seg
 {
-    bool isBlock = false;   // has { ... } children
-    string name;            // decoded name ("" for raw/text)
-    string header;          // verbatim intro line(s) for the node
-    vector<Seg> kids;       // children (when isBlock)
-    string close;           // verbatim closing "}" line (when isBlock)
-    bool generated = false; // produced by us; render genText directly
-    string genText;         // verbatim text of a generated node
-    bool drop = false;      // marked for removal (stray Steam/apps/empty container)
+    bool isBlock = false;
+    string name;
+    string header;
+    vector<Seg> kids;
+    string close;
+    bool generated = false;
+    string genText;
+    bool drop = false;
 };
-
-// Render a Seg and its children back to text.
 static string renderSeg(const Seg &s)
 {
     if (s.drop)
@@ -365,8 +306,6 @@ static string renderSeg(const Seg &s)
             o += s.close;
         else
         {
-            // Truncated input: the block's closing brace was never parsed.
-            // Close it ourselves so the output stays balanced.
             string eol = "\n";
             if (s.header.find("\r\n") != string::npos)
                 eol = "\r\n";
@@ -375,32 +314,14 @@ static string renderSeg(const Seg &s)
     }
     return o;
 }
-
-// ---------------------------------------------------------------------------
-// Parsing: convert tokens to a tree of Seg blocks.
-// ---------------------------------------------------------------------------
 namespace
 {
-
-// Pathological nesting (thousands of nested blocks) must not overflow the
-// call stack or blow up the output with O(depth^2) indentation. Beyond this
-// depth we stop building blocks and flatten the remaining structure into raw
-// text. Real Steam configs are <10 deep, so this is far above any real file.
 const int MAX_DEPTH = 2048;
-// Cap on relative indentation preserved during re-indent (real configs are
-// <10 levels deep; anything deeper is junk and gets clamped).
 const size_t MAX_INDENT = 64;
-
-// Parse immediate children starting at `idx`. Consumes until a TK_CLOSE (which
-// is left for the caller) or the end. Returns the list of child nodes.
-// When `isTop` is true (top-level parse), a stray "}" is treated as raw text
-// and preserved, and parsing continues - so truncated files with extra closing
-// braces don't cause the rest of the file (e.g. JSClientStorage) to be dropped.
 vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, int depth = 0)
 {
     vector<Seg> out;
-    string rawBuf; // verbatim raw text (blank/comment lines) grouped in one node
-
+    string rawBuf;
     auto flushRaw = [&]() {
         if (!rawBuf.empty())
         {
@@ -410,11 +331,9 @@ vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, in
             rawBuf.clear();
         }
     };
-
     while (idx < tokens.size())
     {
         const Tok &tk = tokens[idx];
-
         if (tk.kind == TK_RAW)
         {
             rawBuf += tk.raw;
@@ -425,17 +344,15 @@ vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, in
         {
             if (isTop)
             {
-                // Stray closing brace at top level: preserve it and keep going.
                 rawBuf += tk.raw;
                 idx++;
                 continue;
             }
             flushRaw();
-            return out; // caller consumes the '}'
+            return out;
         }
         if (tk.kind == TK_OPEN)
         {
-            // A stray '{' with no name: keep as raw text.
             rawBuf += tk.raw;
             idx++;
             continue;
@@ -450,7 +367,6 @@ vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, in
             idx++;
             continue;
         }
-        // TK_NAME: block header, possibly followed by '{'.
         {
             flushRaw();
             Seg node;
@@ -461,9 +377,6 @@ vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, in
             {
                 if (depth >= MAX_DEPTH)
                 {
-                    // Too deep: flatten this whole nested block into raw text
-                    // (balanced by construction) so recursion and output size
-                    // stay bounded. The junk is folded/dropped downstream.
                     string flat = node.header + tokens[idx].raw;
                     idx++;
                     int bal = 1;
@@ -491,15 +404,43 @@ vector<Seg> parseChildren(const vector<Tok> &tokens, size_t &idx, bool isTop, in
                     idx++;
                 }
             }
+            else
+            {
+                bool knownBlockName = ieq(node.name, "friendsui") ||
+                                      ieq(node.name, "FriendsUI") ||
+                                      ieq(node.name, "apps") ||
+                                      ieq(node.name, "JSClientStorage") ||
+                                      ieq(node.name, "WebStorage");
+                size_t k = idx;
+                while (k < tokens.size() && tokens[k].kind == TK_RAW)
+                    k++;
+                bool implicitBlock = false;
+                if (knownBlockName && k < tokens.size())
+                {
+                    const Tok &nxt = tokens[k];
+                    if (nxt.kind == TK_LEAF || nxt.kind == TK_NAME)
+                        implicitBlock =
+                            indentOf(nxt.raw).size() > indentOf(node.header).size();
+                }
+                if (implicitBlock)
+                {
+                    node.isBlock = true;
+                    string eigen = node.header.find("\r\n") != string::npos ? "\r\n" : "\n";
+                    node.header += indentOf(node.header) + "{" + eigen;
+                    node.kids = parseChildren(tokens, idx, false, depth + 1);
+                    if (idx < tokens.size() && tokens[idx].kind == TK_CLOSE)
+                    {
+                        node.close = tokens[idx].raw;
+                        idx++;
+                    }
+                }
+            }
             out.push_back(std::move(node));
         }
     }
-
     flushRaw();
     return out;
 }
-
-// Collect all REAL (block) nodes named 'Steam' (any depth) into `out`.
 void collectSteamRecursive(Seg &block, vector<Seg *> &out)
 {
     if (block.isBlock && ieq(block.name, "Steam"))
@@ -507,48 +448,138 @@ void collectSteamRecursive(Seg &block, vector<Seg *> &out)
     for (auto &k : block.kids)
         collectSteamRecursive(k, out);
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// Normalization helpers.
-// ---------------------------------------------------------------------------
+}
 namespace
 {
-
-// True if `s` holds settings that belong directly under Steam.
 bool isSteamLevel(const Seg &s)
 {
     if (s.isBlock)
-        return ieq(s.name, "friendsui") || ieq(s.name, "FriendsUI");
-    return ieq(s.name, "SurveyDate") || ieq(s.name, "SurveyDateVersion") ||
-           ieq(s.name, "StartMenuShortcutCheck") || ieq(s.name, "DesktopShortcutCheck") ||
-           ieq(s.name, "SteamDefaultDialog") || ieq(s.name, "ShowScreenshotManager") ||
-           ieq(s.name, "CloudEnabled") || ieq(s.name, "cloudenabled");
+        return ieq(s.name, "friendsui") || ieq(s.name, "FriendsUI") ||
+               isDeletionOf(s.name, "friendsui");
+    if (isDeletionOf(s.name, "DeskopShortcutCheck") || isDeletionOf(s.name, "PlaySoundOnToast") ||
+        isDeletionOf(s.name, "DisableAllToasts") || isDeletionOf(s.name, "DisableToastsInGame"))
+        return false;
+    if (ieq(s.name, "SurveyDate") || ieq(s.name, "SurveyDateVersion") ||
+        ieq(s.name, "StartMenuShortcutCheck") || ieq(s.name, "DesktopShortcutCheck") ||
+        ieq(s.name, "SteamDefaultDialog") || ieq(s.name, "ShowScreenshotManager") ||
+        ieq(s.name, "CloudEnabled") || ieq(s.name, "cloudenabled") ||
+        ieq(s.name, "FriendsUIJSON"))
+        return true;
+    return isDeletionOf(s.name, "SurveyDate") || isDeletionOf(s.name, "SurveyDateVersion") ||
+           isDeletionOf(s.name, "StartMenuShortcutCheck") || isDeletionOf(s.name, "SteamDefaultDialog") ||
+           isDeletionOf(s.name, "ShowScreenshotManager") || isDeletionOf(s.name, "FriendsUIJSON");
 }
-
-// True if `s` is one of the top-level store containers Steam writes. A real
-// sharedconfig.vdf can carry several stores (UserRoamingConfigStore and
-// UserLocalConfigStore) as top-level siblings; when we collapse to a single
-// canonical store these wrappers must be UNWRAPPED (their children folded)
-// rather than nested inside the rebuilt root.
+bool isCleanKey(const string &name)
+{
+    if (name.empty())
+        return false;
+    for (char c : name)
+    {
+        unsigned char u = (unsigned char)c;
+        if (isalnum(u) || c == ' ' || c == '_' || c == '.' || c == '-')
+            continue;
+        return false;
+    }
+    return true;
+}
+bool leafHasValue(const Seg &s)
+{
+    if (s.isBlock)
+        return true;
+    size_t q1 = s.header.find('"');
+    if (q1 == string::npos)
+        return false;
+    size_t q2 = s.header.find('"', q1 + 1);
+    if (q2 == string::npos)
+        return false;
+    return s.header.find('"', q2 + 1) != string::npos;
+}
+bool isStoreRootLevel(const Seg &s)
+{
+    if (s.isBlock)
+    {
+        if (isMangledOf(s.name, "JSClientStorage") || isMangledOf(s.name, "WebStorage"))
+            return true;
+        return ieq(s.name, "timeline_intro") || isDeletionOf(s.name, "timeline_intro");
+    }
+    if (isMangledOf(s.name, "PlaySoundOnToast") || isMangledOf(s.name, "DisableAllToasts") ||
+        isMangledOf(s.name, "DisableToastsInGame") || isMangledOf(s.name, "DeskopShortcutCheck"))
+        return true;
+    return ieq(s.name, "PlaySoundOnToast") || ieq(s.name, "DisableAllToasts") ||
+           ieq(s.name, "DisableToastsInGame") || ieq(s.name, "DeskopShortcutCheck");
+}
 bool isStoreBlock(const Seg &s)
 {
-    return s.isBlock && (ieq(s.name, "UserRoamingConfigStore") ||
-                         ieq(s.name, "UserLocalConfigStore"));
+    if (!s.isBlock)
+        return false;
+    if (ieq(s.name, "UserRoamingConfigStore") || ieq(s.name, "UserLocalConfigStore"))
+        return true;
+    if (isDeletionOf(s.name, "UserRoamingConfigStore", 4) ||
+        isDeletionOf(s.name, "UserLocalConfigStore", 4))
+        return true;
+    size_t n = s.name.size();
+    const char *needle = "configstore";
+    size_t m = strlen(needle);
+    for (size_t i = 0; i + m <= n; ++i)
+    {
+        bool match = true;
+        for (size_t j = 0; j < m; ++j)
+            if (tolower((unsigned char)s.name[i + j]) != needle[j])
+            {
+                match = false;
+                break;
+            }
+        if (match)
+            return true;
+    }
+    return false;
 }
-
-// True if the character is ignorable junk: whitespace or any control char
-// (form feed, vertical tab, NUL, DEL, ...). Real VDF never uses these as
-// content, so they can be ignored when deciding if text is brace-only junk.
+bool isStoreContainer(const Seg &s)
+{
+    if (!s.isBlock)
+        return false;
+    if (isStoreBlock(s) || isStoreRootLevel(s))
+        return true;
+    if (isMangledOf(s.name, "JSClientStorage") || isMangledOf(s.name, "WebStorage") ||
+        isDeletionOf(s.name, "JSClientStorage") || isDeletionOf(s.name, "WebStorage"))
+        return true;
+    return false;
+}
+bool isCloudSwitchLeaf(const Seg &s)
+{
+    return !s.isBlock && !s.name.empty() && isMangledOf(s.name, "CloudEnabled");
+}
+bool isAppsName(const string &name)
+{
+    return !name.empty() &&
+           (ieq(name, "apps") || isMangledOf(name, "apps", 2) ||
+            isDeletionOf(name, "apps"));
+}
+bool isAppsBlock(const Seg &s)
+{
+    return s.isBlock && isAppsName(s.name);
+}
+bool isAppIdName(const string &name)
+{
+    if (name.empty())
+        return false;
+    for (char c : name)
+        if (c < '0' || c > '9')
+            return false;
+    return true;
+}
+void addAppId(vector<string> &ids, const string &quoted)
+{
+    for (const auto &x : ids)
+        if (x == quoted)
+            return;
+    ids.push_back(quoted);
+}
 bool isIgnorable(char c)
 {
     unsigned char u = (unsigned char)c;
     return u <= 0x20 || u == 0x7f;
 }
-
-// True if `text` contains only braces (plus ignorable chars) and at least one
-// brace - i.e. a stray-brace run with no real content.
 bool isBraceOnly(const string &text)
 {
     bool any = false;
@@ -565,8 +596,6 @@ bool isBraceOnly(const string &text)
     }
     return any;
 }
-
-// True if a raw node is only stray braces / ignorable junk (safe to drop).
 bool isStrayBrace(const Seg &s)
 {
     if (s.isBlock || !s.name.empty())
@@ -576,27 +605,17 @@ bool isStrayBrace(const Seg &s)
             return false;
     return true;
 }
-
-// Remove bare "{" / "}" LINES from raw junk text so stray braces from mangled
-// files cannot unbalance the output. Real content is untouched and newlines
-// between kept lines are preserved (reindent re-adds the file's EOL later).
 string stripBraceLines(const string &text)
 {
     string out;
     size_t start = 0;
     while (start < text.size())
     {
-        // Single scan for the nearest line ending (see splitKeepingNewlines).
         size_t end = text.find_first_of("\r\n", start);
-
         string line = (end == string::npos) ? text.substr(start) : text.substr(start, end - start);
         size_t nextStart = (end == string::npos) ? text.size() : end + 1;
         if (end != string::npos && text[end] == '\r' && nextStart < text.size() && text[nextStart] == '\n')
             nextStart++;
-
-        // Strip any line made up ONLY of braces (single or runs like }}, {{
-        // or }{, with any surrounding control/whitespace junk), but keep blank
-        // lines and anything containing real content.
         if (!isBraceOnly(line))
         {
             out += line;
@@ -609,11 +628,6 @@ string stripBraceLines(const string &text)
     }
     return out;
 }
-
-// Re-indent a rendered block: the first non-blank line gets `pad`, and every
-// other line keeps its indentation RELATIVE to the first line (so nested
-// content stays nested). Blank lines are left untouched. Handles LF, CRLF and
-// lone-CR line endings so a stray carriage return cannot merge two lines.
 string reindent(const string &text, const string &pad, const string &eol)
 {
     string out;
@@ -622,18 +636,14 @@ string reindent(const string &text, const string &pad, const string &eol)
     bool haveBase = false;
     while (start < text.size())
     {
-        // Single scan for the nearest line ending (see splitKeepingNewlines).
         size_t end = text.find_first_of("\r\n", start);
-
         string line = (end == string::npos) ? text.substr(start) : text.substr(start, end - start);
         size_t nextStart = (end == string::npos) ? text.size() : end + 1;
         if (end != string::npos && text[end] == '\r' && nextStart < text.size() && text[nextStart] == '\n')
-            nextStart++; // consume the LF of a CRLF pair
-
+            nextStart++;
         size_t b = line.find_first_not_of(" \t");
         if (b == string::npos)
         {
-            // blank / whitespace-only line: keep as-is
             out += line;
             if (end != string::npos)
                 out += eol;
@@ -647,8 +657,6 @@ string reindent(const string &text, const string &pad, const string &eol)
                 haveBase = true;
             }
             size_t extra = (cur > base) ? cur - base : 0;
-            // Cap pathological relative indentation (a stray deeply-nested
-            // block must not blow the output up to O(depth^2) tabs).
             if (extra > MAX_INDENT)
                 extra = MAX_INDENT;
             out += pad + string(extra, '\t') + line.substr(b) + eol;
@@ -659,12 +667,6 @@ string reindent(const string &text, const string &pad, const string &eol)
     }
     return out;
 }
-
-// Quote-aware, comment-aware check: is `text` both quote-balanced and
-// brace-balanced? Used to decide whether preserved junk is safe to fold into
-// the output - unbalanced braces or a stray unterminated quote would corrupt
-// the file we write. `//` comments are ignored (their quotes/braces are not
-// structural), matching how the file is parsed elsewhere.
 bool isSafeJunk(const string &text)
 {
     int depth = 0;
@@ -701,27 +703,95 @@ bool isSafeJunk(const string &text)
     }
     return !inString && depth == 0;
 }
-
-// Render `top`, sanity-check it (balanced braces and quotes), and re-indent to
-// `pad`. Returns "" when the content would corrupt the output. When `strip` is
-// true, stray brace-only lines are removed first (raw junk).
+bool isFragmentLeaf(const Seg &s)
+{
+    if (s.isBlock)
+        return !isCleanKey(s.name);
+    if (!s.name.empty())
+        return !isCleanKey(s.name) || !leafHasValue(s);
+    string h = stripBraceLines(s.header);
+    if (trimS(h).empty())
+        return true;
+    string trimmed = trimS(h);
+    if (trimmed.size() >= 2 && trimmed[0] == '/' && trimmed[1] == '/')
+        return false;
+    if (trimmed[0] == '"' && trimmed.size() >= 2 && trimmed[1] == '"')
+        return true;
+    string core;
+    for (char c : trimmed)
+        if (c != '"' && !isspace((unsigned char)c))
+            core += c;
+    return trimmed.find('"') == string::npos || core.empty();
+}
 string foldJunk(const Seg &top, const string &pad, const string &eol, bool strip)
 {
     string rendered = renderSeg(top);
     if (strip)
         rendered = stripBraceLines(rendered);
-    // Safety-check AFTER stripping: removing a brace-only line can leave its
-    // matching brace stranded on a content line (e.g. "{ / junk }"), so the
-    // stripped text must itself be balanced before we fold it in.
     if (!isSafeJunk(rendered))
         return "";
     return reindent(rendered, pad, eol);
 }
-
-// Re-indent `node` to sit at `pad`: its header line(s) go to `pad`, and every
-// direct child goes one level deeper (recursively). Generated nodes are left
-// untouched. This cleans up wonky / over-indented in-place indentation from
-// mangled inputs while preserving each node's internal relative structure.
+string alignHeader(const string &header, const string &pad)
+{
+    string out;
+    size_t start = 0;
+    while (start < header.size())
+    {
+        size_t end = header.find_first_of("\r\n", start);
+        string line = (end == string::npos) ? header.substr(start)
+                                            : header.substr(start, end - start);
+        string nl;
+        size_t next = (end == string::npos) ? header.size() : end + 1;
+        if (end != string::npos && header[end] == '\r' && next < header.size() && header[next] == '\n')
+        {
+            nl = "\r\n";
+            next++;
+        }
+        else if (end != string::npos)
+            nl = (header[end] == '\n') ? "\n" : "\r";
+        size_t b = line.find_first_not_of(" \t");
+        if (b == string::npos)
+            out += line + nl;
+        else
+            out += pad + line.substr(b) + nl;
+        if (end == string::npos)
+            break;
+        start = next;
+    }
+    return out;
+}
+bool blockHasRecoverable(const Seg &node)
+{
+    if (node.isBlock && (isStoreBlock(node) || ieq(node.name, "Steam") ||
+                         isAppsBlock(node) || isStoreRootLevel(node)))
+        return true;
+    if (node.isBlock && isAppIdName(node.name))
+        for (const auto &k : node.kids)
+            if (ieq(k.name, "CloudEnabled"))
+                return true;
+    for (const auto &k : node.kids)
+        if (blockHasRecoverable(k))
+            return true;
+    return false;
+}
+void flattenReal(Seg &n, vector<Seg> &out)
+{
+    if (n.isBlock && isFragmentLeaf(n) && blockHasRecoverable(n))
+    {
+        for (auto &sub : n.kids)
+            flattenReal(sub, out);
+        return;
+    }
+    if (n.isBlock)
+    {
+        vector<Seg> kept;
+        for (auto &k : n.kids)
+            flattenReal(k, kept);
+        n.kids = std::move(kept);
+    }
+    out.push_back(std::move(n));
+}
 void normalizeTree(Seg &node, const string &pad, const string &eol)
 {
     if (node.generated || node.drop)
@@ -729,26 +799,19 @@ void normalizeTree(Seg &node, const string &pad, const string &eol)
     if (node.isBlock)
     {
         node.header = reindent(node.header, pad, eol);
+        node.header = alignHeader(node.header, pad);
         if (!node.close.empty())
             node.close = reindent(node.close, pad, eol);
-        // Cap the absolute indentation as well as the relative one: a
-        // pathological nesting depth must not pad deep junk with thousands of
-        // tabs. That bloats the flattened string to O(depth * size), which
-        // renderSeg then copies once per level up the tree - an O(depth^2)
-        // blowup on inputs like a 50k-deep brace nest. Real configs are <10
-        // levels deep, so anything past MAX_INDENT is junk and can clamp here.
         string childPad = pad;
         if (childPad.size() < MAX_INDENT)
             childPad += "\t";
         vector<Seg> kept;
         for (auto &k : node.kids)
         {
+            if (isFragmentLeaf(k) && (!k.isBlock || !blockHasRecoverable(k)))
+                continue;
             if (!k.isBlock && k.name.empty())
             {
-                // Raw junk: strip stray brace-only lines so mangled { } runs
-                // can't unbalance the output, then drop anything that is still
-                // quote/brace-unbalanced (it would corrupt the output when this
-                // block is rendered verbatim).
                 k.header = stripBraceLines(k.header);
                 if (trimS(k.header).empty())
                     continue;
@@ -765,11 +828,6 @@ void normalizeTree(Seg &node, const string &pad, const string &eol)
         node.header = reindent(node.header, pad, eol);
     }
 }
-
-// Re-indent every direct child of `block` to `pad` (each child's internal
-// relative indentation is preserved). Generated nodes are left alone. Used to
-// re-level children that were merged in from a stray block at a different
-// depth.
 void normalizeChildIndents(Seg &block, const string &pad, const string &eol)
 {
     vector<Seg> newKids;
@@ -786,8 +844,6 @@ void normalizeChildIndents(Seg &block, const string &pad, const string &eol)
     }
     block.kids = std::move(newKids);
 }
-
-// True if `block` has a direct child named `name` (case-insensitive).
 bool hasKid(const Seg &block, const string &name)
 {
     for (const auto &k : block.kids)
@@ -795,8 +851,6 @@ bool hasKid(const Seg &block, const string &name)
             return true;
     return false;
 }
-
-// True if `node` is `target` itself or a descendant of it.
 bool containsSeg(const Seg &node, const Seg *target)
 {
     if (&node == target)
@@ -806,80 +860,466 @@ bool containsSeg(const Seg &node, const Seg *target)
             return true;
     return false;
 }
-
-// First Steam block found when walking below a node that is (or is inside) a
-// block named `target`; nullptr if none.
-Seg *findSteamUnder(Seg &node, const string &target, bool inside)
+string firstQuotedKey(const string &line)
 {
-    if (inside && node.isBlock && ieq(node.name, "Steam"))
-        return &node;
-    bool childInside = inside || (node.isBlock && ieq(node.name, target));
+    size_t b = line.find('"');
+    if (b == string::npos)
+        return "";
+    size_t e = line.find('"', b + 1);
+    if (e == string::npos)
+        return "";
+    return line.substr(b + 1, e - b - 1);
+}
+bool rawContainsSteamBlock(const string &header)
+{
+    size_t start = 0;
+    while (start < header.size())
+    {
+        size_t nl = header.find('\n', start);
+        string line = header.substr(start, (nl == string::npos) ? string::npos : nl - start);
+        size_t b = line.find('"');
+        if (b != string::npos)
+        {
+            size_t q2 = line.find('"', b + 1);
+            if (q2 != string::npos)
+            {
+                string key = line.substr(b + 1, q2 - b - 1);
+                if (ieq(key, "Steam"))
+                {
+                    string after = line.substr(q2 + 1);
+                    bool onlyWs = true;
+                    for (char c : after)
+                        if (c != ' ' && c != '\t')
+                        {
+                            onlyWs = false;
+                            break;
+                        }
+                    if (!onlyWs && after.find('{') != string::npos)
+                        return true;
+                    if (onlyWs)
+                    {
+                        size_t nx = (nl == string::npos) ? header.size() : nl + 1;
+                        while (nx < header.size())
+                        {
+                            size_t nl2 = header.find('\n', nx);
+                            string nline = header.substr(nx, (nl2 == string::npos) ? string::npos : nl2 - nx);
+                            string t = trimS(nline);
+                            if (!t.empty())
+                                return t == "{";
+                            nx = (nl2 == string::npos) ? header.size() : nl2 + 1;
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+        if (nl == string::npos)
+            break;
+        start = nl + 1;
+    }
+    return false;
+}
+void dedupeSteamExtras(string &extras, const Seg &canonical)
+{
+    if (extras.empty())
+        return;
+    vector<string> keys;
+    for (const auto &k : canonical.kids)
+    {
+        string key = firstQuotedKey(k.header);
+        if (key.empty())
+            key = k.name;
+        if (!key.empty())
+            keys.push_back(key);
+    }
+    if (keys.empty())
+        return;
+    string out;
+    size_t start = 0;
+    while (start < extras.size())
+    {
+        size_t nl = extras.find('\n', start);
+        size_t end = (nl == string::npos) ? extras.size() : nl + 1;
+        string key = firstQuotedKey(extras.substr(start, end - start));
+        bool drop = false;
+        if (!key.empty())
+        {
+            for (const auto &t : keys)
+                if (ieq(t, key))
+                {
+                    drop = true;
+                    break;
+                }
+            if (!drop)
+                keys.push_back(key);
+        }
+        if (!drop)
+            out += extras.substr(start, end - start);
+        start = end;
+    }
+    extras = out;
+}
+void stripUnbalancedBraceLines(string &text)
+{
+    if (text.empty())
+        return;
+    vector<string> lines;
+    {
+        size_t start = 0;
+        while (start < text.size())
+        {
+            size_t nl = text.find('\n', start);
+            size_t end = (nl == string::npos) ? text.size() : nl + 1;
+            lines.push_back(text.substr(start, end - start));
+            start = end;
+        }
+    }
+    const size_t n = lines.size();
+    vector<int> delta(n, 0);
+    vector<bool> bareOnly(n, false);
+    vector<bool> kept(n, true);
+    for (size_t li = 0; li < n; ++li)
+    {
+        const string &ln = lines[li];
+        int d = 0;
+        bool onlyBraces = true;
+        bool inQ = false;
+        for (size_t i = 0; i < ln.size(); ++i)
+        {
+            char c = ln[i];
+            if (inQ)
+            {
+                if (c == '\\' && i + 1 < ln.size())
+                {
+                    ++i;
+                    continue;
+                }
+                if (c == '"')
+                    inQ = false;
+                continue;
+            }
+            if (c == '"')
+            {
+                inQ = true;
+                onlyBraces = false;
+                continue;
+            }
+            if (c == '/' && i + 1 < ln.size() && ln[i + 1] == '/')
+                break;
+            if (c == '{')
+            {
+                ++d;
+                continue;
+            }
+            if (c == '}')
+            {
+                --d;
+                continue;
+            }
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+                onlyBraces = false;
+        }
+        delta[li] = d;
+        bareOnly[li] = onlyBraces;
+    }
+    int depth = 0;
+    for (size_t li = 0; li < n; ++li)
+    {
+        if (!kept[li])
+            continue;
+        if (bareOnly[li] && depth + delta[li] < 0)
+        {
+            kept[li] = false;
+            continue;
+        }
+        depth += delta[li];
+    }
+    for (size_t li = n; li-- > 0 && depth > 0;)
+    {
+        if (kept[li] && bareOnly[li] && delta[li] > 0)
+        {
+            kept[li] = false;
+            depth -= delta[li];
+        }
+    }
+    string out;
+    for (size_t li = 0; li < n; ++li)
+        if (kept[li])
+            out += lines[li];
+    text = out;
+}
+void hoistStoreRootKeysRec(Seg &node, int depth, const string &eol, vector<Seg> &hoisted);
+bool chainDescendant(const Seg &node);
+void drainChainShell(Seg &node, const string &pad, const string &steamPad,
+                     const string &eol, string &rootExtra, string &steamExtra);
+void drainStoreWrapper(Seg &node, const string &rootPad, const string &steamPad,
+                       const string &eol, string &rootExtra, string &steamExtra);
+bool isMangledChainContainer(const Seg &s);
+bool containsStructuralChain(const Seg &node);
+bool containsRealSteam(const Seg &node);
+void drainNestedApps(Seg &node, vector<string> &ids);
+void hoistStoreRootKeysText(Seg &node, const string &pad, const string &eol,
+                            string &rootExtra)
+{
     for (auto &k : node.kids)
     {
-        Seg *f = findSteamUnder(k, target, childInside);
-        if (f)
-            return f;
+        bool rootContainer =
+            k.isBlock && (ieq(k.name, "JSClientStorage") || ieq(k.name, "WebStorage"));
+        bool healthyRootContainer = rootContainer && !chainDescendant(k);
+        if (isStoreRootLevel(k))
+        {
+            if (chainDescendant(k) || containsRealSteam(k) || isStoreBlock(k))
+            {
+                hoistStoreRootKeysText(k, pad, eol, rootExtra);
+                continue;
+            }
+            rootExtra += foldJunk(k, pad, eol, false);
+            k.drop = true;
+            continue;
+        }
+        if (k.isBlock && !healthyRootContainer)
+            hoistStoreRootKeysText(k, pad, eol, rootExtra);
     }
-    return nullptr;
 }
-
-// Pick the canonical Steam block: prefer the real chain
-// (Software > valve > Steam), then under a Software block, then under a
-// UserRoamingConfigStore, then the first one found.
+void recoverScattered(Seg &node, const Seg *canonical, bool insideCanonical,
+                      const string &pad, vector<string> &ids,
+                      string &steamExtra, string &rootExtraOut,
+                      const string &eol)
+{
+    if (&node == canonical)
+    {
+        for (auto &k : node.kids)
+        {
+            if (isAppsBlock(k))
+            {
+                for (auto &g : k.kids)
+                    if (g.isBlock && isAppIdName(g.name))
+                        addAppId(ids, "\"" + g.name + "\"");
+                continue;
+            }
+            recoverScattered(k, canonical, true, pad, ids, steamExtra,
+                             rootExtraOut, eol);
+        }
+        return;
+    }
+    if (node.isBlock && isAppIdName(node.name))
+    {
+        addAppId(ids, "\"" + node.name + "\"");
+        if (!containsSeg(node, canonical))
+            node.drop = true;
+        return;
+    }
+    if (node.isBlock && !insideCanonical && isSteamLevel(node) &&
+        !containsSeg(node, canonical))
+    {
+#ifndef SKIP_HOIST
+        hoistStoreRootKeysText(node, "\t", eol, rootExtraOut);
+#endif
+#ifndef SKIP_DRAIN
+        drainNestedApps(node, ids);
+#endif
+        steamExtra += foldJunk(node, pad, eol, false);
+        node.drop = true;
+        return;
+    }
+    if (node.isBlock)
+    {
+        for (auto &k : node.kids)
+        {
+            recoverScattered(k, canonical, insideCanonical, pad, ids, steamExtra,
+                             rootExtraOut, eol);
+            if (isMangledChainContainer(k) && !containsSeg(k, canonical))
+                k.drop = true;
+        }
+        return;
+    }
+    if (!insideCanonical && !node.name.empty() && !node.isBlock &&
+        isMangledOf(node.name, "CloudEnabled"))
+    {
+        node.drop = true;
+        return;
+    }
+    if (!insideCanonical && !node.name.empty() && !node.isBlock &&
+        isAppsName(node.name))
+    {
+        node.drop = true;
+        return;
+    }
+    if (!insideCanonical && !node.name.empty() && isSteamLevel(node))
+    {
+        if (ieq(node.name, "CloudEnabled"))
+        {
+            node.drop = true;
+        }
+        else
+        {
+            steamExtra += foldJunk(node, pad, eol, false);
+            node.drop = true;
+        }
+    }
+}
+void drainNestedApps(Seg &node, vector<string> &ids)
+{
+    if (!node.isBlock)
+        return;
+    if (isAppsBlock(node))
+    {
+        for (auto &g : node.kids)
+            if (g.isBlock && isAppIdName(g.name))
+            {
+                addAppId(ids, "\"" + g.name + "\"");
+                g.drop = true;
+            }
+        node.drop = true;
+        return;
+    }
+    if (isAppIdName(node.name))
+    {
+        addAppId(ids, "\"" + node.name + "\"");
+        node.drop = true;
+        return;
+    }
+    for (auto &k : node.kids)
+        drainNestedApps(k, ids);
+}
+bool chainDescendant(const Seg &node)
+{
+    if (node.isBlock &&
+        (ieq(node.name, "Software") || ieq(node.name, "valve") ||
+         isDeletionOf(node.name, "Software") || isDeletionOf(node.name, "valve")))
+        return true;
+    if (node.isBlock && node.name.find("Steam") != string::npos)
+        return true;
+    for (const auto &k : node.kids)
+        if (chainDescendant(k))
+            return true;
+    return false;
+}
+void hoistStoreRootKeysRec(Seg &node, int depth, const string &eol, vector<Seg> &hoisted)
+{
+    vector<Seg> kept;
+    for (auto &k : node.kids)
+    {
+        bool rootContainer =
+            k.isBlock && (ieq(k.name, "JSClientStorage") || ieq(k.name, "WebStorage"));
+        bool healthyRootContainer = rootContainer && !chainDescendant(k);
+        if (depth >= 1 && isStoreRootLevel(k))
+        {
+            normalizeTree(k, "\t", eol);
+            hoisted.push_back(std::move(k));
+            continue;
+        }
+        if (k.isBlock && !healthyRootContainer)
+            hoistStoreRootKeysRec(k, depth + 1, eol, hoisted);
+        kept.push_back(std::move(k));
+    }
+    node.kids = std::move(kept);
+}
+void hoistStoreRootKeys(Seg &storeRoot, const string &eol)
+{
+    vector<Seg> hoisted;
+    hoistStoreRootKeysRec(storeRoot, 0, eol, hoisted);
+    for (auto &h : hoisted)
+        storeRoot.kids.push_back(std::move(h));
+}
+void findSteamsUnder(Seg &node, const string &target, bool inside, vector<Seg *> &out)
+{
+    if (inside && node.isBlock && ieq(node.name, "Steam"))
+        out.push_back(&node);
+    bool childInside = inside || (node.isBlock && ieq(node.name, target));
+    for (auto &k : node.kids)
+        findSteamsUnder(k, target, childInside, out);
+}
+bool steamInsideSteam(const Seg *candidate, const vector<Seg *> &allSteams)
+{
+    for (const Seg *s : allSteams)
+        if (s != candidate && containsSeg(*s, candidate))
+            return true;
+    return false;
+}
 Seg *pickCanonicalSteam(vector<Seg> &tops, const vector<Seg *> &allSteams)
 {
-    for (auto &top : tops)
-    {
-        Seg *f = findSteamUnder(top, "valve", false);
-        if (f)
-            return f;
-    }
-    for (auto &top : tops)
-    {
-        Seg *f = findSteamUnder(top, "Software", false);
-        if (f)
-            return f;
-    }
-    for (auto &top : tops)
-    {
-        Seg *f = findSteamUnder(top, "UserRoamingConfigStore", false);
-        if (f)
-            return f;
-    }
+    auto findFirst = [&](const string &target) -> Seg * {
+        for (auto &top : tops)
+        {
+            vector<Seg *> found;
+            findSteamsUnder(top, target, false, found);
+            for (Seg *f : found)
+                if (!steamInsideSteam(f, allSteams))
+                    return f;
+        }
+        return nullptr;
+    };
+    Seg *f = findFirst("valve");
+    if (f)
+        return f;
+    f = findFirst("Software");
+    if (f)
+        return f;
+    f = findFirst("UserRoamingConfigStore");
+    if (f)
+        return f;
+    for (Seg *s : allSteams)
+        if (!steamInsideSteam(s, allSteams))
+            return s;
     return allSteams[0];
 }
-
-// Mark stray "apps" blocks (not inside the canonical Steam) for removal.
 void markStrayApps(Seg &node, const Seg *canonical, bool insideCanonical)
 {
-    // Never drop an apps block that CONTAINS the canonical Steam (it can only
-    // be an ancestor of the canonical when the input was mangled so badly that
-    // the canonical ended up nested inside a stray apps block). Dropping it
-    // would take the canonical Steam with it and leave no Steam in the output.
-    if (node.isBlock && ieq(node.name, "apps") && !insideCanonical
+    if (isAppsBlock(node) && !insideCanonical
         && !containsSeg(node, canonical))
         node.drop = true;
     bool childInside = insideCanonical || (&node == canonical);
     for (auto &k : node.kids)
         markStrayApps(k, canonical, childInside);
 }
-
-// Mark emptied container blocks (valve/Software) for removal, bottom-up.
-// Returns true when the node contributes no content anymore.
+bool rawHasRootKeys(const string &header)
+{
+    for (const auto &line : splitKeepingNewlines(header))
+    {
+        string s = trimS(line);
+        if (s.size() >= 2 && s[0] == '"')
+        {
+            size_t close = s.find('"', 1);
+            if (close != string::npos)
+            {
+                string key = s.substr(1, close - 1);
+                if (ieq(key, "JSClientStorage") || ieq(key, "WebStorage") ||
+                    ieq(key, "PlaySoundOnToast") || ieq(key, "DisableAllToasts") ||
+                    ieq(key, "DisableToastsInGame") || ieq(key, "DeskopShortcutCheck"))
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+bool isEmptyShell(const string &header)
+{
+    string stripped = stripBraceLines(header);
+    string trimmed = trimS(stripped);
+    if (trimmed.empty())
+        return true;
+    for (char c : trimmed)
+        if (c != '"' && !isspace((unsigned char)c))
+            return false;
+    return true;
+}
 bool markEmptyContainers(Seg &node)
 {
     if (!node.isBlock)
+    {
+        if (!node.generated && (node.drop || isEmptyShell(node.header)))
+            node.drop = true;
         return node.drop;
+    }
     bool allKidsGone = true;
     for (auto &k : node.kids)
         if (!markEmptyContainers(k))
             allKidsGone = false;
-    if (allKidsGone && (ieq(node.name, "valve") || ieq(node.name, "Software")))
+    if (allKidsGone && !node.generated)
         node.drop = true;
     return node.drop;
 }
-
-// Text of a generated "apps" block whose children sit at indent `ci`.
 string buildAppsText(const string &ci, const vector<string> &ids, const string &eol)
 {
     string acc = ci + "\"apps\"" + eol;
@@ -894,8 +1334,6 @@ string buildAppsText(const string &ci, const vector<string> &ids, const string &
     acc += ci + "}" + eol;
     return acc;
 }
-
-// Text of a generated "Steam" block whose header sits at indent `pid`.
 string buildSteamBlockText(const string &pid, const vector<string> &ids, const string &eol)
 {
     string ci = pid + "\t";
@@ -906,37 +1344,35 @@ string buildSteamBlockText(const string &pid, const vector<string> &ids, const s
     s += pid + "}" + eol;
     return s;
 }
-
-// Force the canonical Steam's global CloudEnabled to "0" and rebuild apps.
 void transformCanonical(Seg &steam, const vector<string> &ids, const string &eol)
 {
     string steamChildIndent = indentOf(steam.header) + "\t";
-
     vector<Seg> newKids;
     bool sawOuterCloud = false;
     bool appsDone = false;
-
     for (auto &k : steam.kids)
     {
-        if (ieq(k.name, "apps"))
+        if (!k.isBlock && !k.name.empty() && !ieq(k.name, "CloudEnabled") &&
+            isMangledOf(k.name, "CloudEnabled", 6))
+            continue;
+        if (!k.isBlock && !k.name.empty() && isAppsName(k.name))
+            continue;
+        if (isAppsBlock(k))
         {
-            // Replace the FIRST node named apps (block or stray leaf) with the
-            // rebuilt block; drop any extra duplicate apps nodes.
             if (!appsDone)
             {
                 appsDone = true;
                 Seg apps;
                 apps.name = "apps";
+                apps.isBlock = true;
                 apps.generated = true;
                 apps.genText = buildAppsText(steamChildIndent, ids, eol);
                 newKids.push_back(std::move(apps));
             }
             continue;
         }
-
         if (ieq(k.name, "CloudEnabled") && !k.isBlock)
         {
-            // Replace the FIRST non-block CloudEnabled; drop any extras.
             if (!sawOuterCloud)
             {
                 sawOuterCloud = true;
@@ -948,14 +1384,12 @@ void transformCanonical(Seg &steam, const vector<string> &ids, const string &eol
             }
             continue;
         }
-
         {
             string rendered = renderSeg(k);
-            // Strip stray brace-only lines from raw junk children (so "{ /
-            // junk }" can't unbalance the Steam block), then drop anything
-            // still unsafe.
             if (!k.isBlock && k.name.empty())
-                rendered = stripBraceLines(rendered);
+            {
+                rendered = alignHeader(stripBraceLines(rendered), steamChildIndent);
+            }
             if (isSafeJunk(rendered))
             {
                 if (!k.isBlock && k.name.empty())
@@ -964,7 +1398,6 @@ void transformCanonical(Seg &steam, const vector<string> &ids, const string &eol
             }
         }
     }
-
     if (!sawOuterCloud)
     {
         Seg cloud;
@@ -973,7 +1406,6 @@ void transformCanonical(Seg &steam, const vector<string> &ids, const string &eol
         cloud.genText = steamChildIndent + "\"CloudEnabled\"\t\t\"0\"" + eol;
         newKids.insert(newKids.begin(), std::move(cloud));
     }
-
     if (!appsDone)
     {
         Seg apps;
@@ -982,18 +1414,33 @@ void transformCanonical(Seg &steam, const vector<string> &ids, const string &eol
         apps.genText = buildAppsText(steamChildIndent, ids, eol);
         newKids.push_back(std::move(apps));
     }
-
-    // Put the transformed children back, then re-level preserved children
-    // (including any merged in from stray Steam blocks) so the Steam block is
-    // clean even when input indents were wonky. (Without this assignment the
-    // moved-from kids left behind by the loop above would render stray "}".)
+    for (size_t i = 0; i < newKids.size(); ++i)
+    {
+        Seg &b = newKids[i];
+        if (!b.isBlock || !(ieq(b.name, "friendsui") || ieq(b.name, "FriendsUI")) ||
+            !b.kids.empty())
+            continue;
+        for (size_t j = 0; j < newKids.size(); ++j)
+        {
+            if (i == j)
+                continue;
+            Seg &leaf = newKids[j];
+            if (leaf.isBlock)
+                continue;
+            if (ieq(leaf.name, "FriendsUIJSON") ||
+                isDeletionOf(leaf.name, "FriendsUIJSON"))
+            {
+                b.kids.push_back(std::move(leaf));
+                newKids.erase(newKids.begin() + (long)j);
+                if (j < i)
+                    --i;
+                break;
+            }
+        }
+    }
     steam.kids = std::move(newKids);
     normalizeChildIndents(steam, steamChildIndent, eol);
 }
-
-// A UserRoamingConfigStore exists but no real Steam block was found: add a
-// canonical Steam (CloudEnabled "0" + rebuilt apps) into its Software>valve,
-// replacing any "Steam" leaf/block already there. Returns the output text.
 string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string &eol)
 {
     Seg *roam = nullptr;
@@ -1005,7 +1452,6 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
         }
     if (!roam)
         return "";
-
     Seg *software = nullptr;
     for (auto &k : roam->kids)
         if (k.isBlock && ieq(k.name, "Software"))
@@ -1023,9 +1469,6 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
         roam->kids.insert(roam->kids.begin(), std::move(s));
         software = &roam->kids.front();
     }
-
-    // Drop any stray "Steam" leafs directly under Software (a real Steam block
-    // would have been found above, so anything named Steam here is just junk).
     {
         vector<Seg> kept;
         for (auto &k : software->kids)
@@ -1033,7 +1476,6 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
                 kept.push_back(std::move(k));
         software->kids = std::move(kept);
     }
-
     Seg *valve = nullptr;
     for (auto &k : software->kids)
         if (k.isBlock && ieq(k.name, "valve"))
@@ -1051,36 +1493,33 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
         software->kids.push_back(std::move(v));
         valve = &software->kids.back();
     }
-
-    // Replace any existing "Steam" child (leaf or block) under valve.
     string pid = indentOf(valve->header) + "\t";
     vector<Seg> kept;
     for (auto &k : valve->kids)
         if (!ieq(k.name, "Steam"))
             kept.push_back(std::move(k));
     valve->kids = std::move(kept);
-
+    vector<string> allIds = ids;
+    string steamExtra;
+    string rootExtra;
+    for (auto &top : tops)
+        recoverScattered(top, nullptr, false, pid + "\t", allIds, steamExtra,
+                         rootExtra, eol);
+    for (auto &top : tops)
+        markStrayApps(top, nullptr, false);
     Seg steam;
     steam.name = "Steam";
+    steam.isBlock = true;
     steam.generated = true;
-    steam.genText = buildSteamBlockText(pid, ids, eol);
+    steam.genText = buildSteamBlockText(pid, allIds, eol);
     valve->kids.push_back(std::move(steam));
     Seg *steamPtr = &valve->kids.back();
-
-    // Stray "apps" directly under the roam are regenerated under Steam.
     for (auto &k : roam->kids)
-        if (k.isBlock && ieq(k.name, "apps"))
+        if (isAppsBlock(k))
             k.drop = true;
-    // Stray top-level "Software" duplicates.
     for (auto &top : tops)
         if (&top != roam && ieq(top.name, "Software"))
             top.drop = true;
-
-    // Fold stray top-level content the same way buildRoamRoot does: drop
-    // brace-only junk and stray CloudEnabled leaves, fold Steam-level settings
-    // into the added Steam, and fold everything else into the roam.
-    string steamExtra;
-    string rootExtra;
     for (auto &top : tops)
     {
         if (&top == roam || top.drop)
@@ -1090,18 +1529,28 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
             top.drop = true;
             continue;
         }
-        if (!top.isBlock && ieq(top.name, "CloudEnabled"))
+        if (isCloudSwitchLeaf(top))
         {
             top.drop = true;
             continue;
         }
-        if (isStoreBlock(top))
+        bool chainShell = top.isBlock &&
+                          (ieq(top.name, "Software") || ieq(top.name, "valve") ||
+                           isDeletionOf(top.name, "Software") ||
+                           isDeletionOf(top.name, "valve") ||
+                           isDeletionOf(top.name, "Steam") ||
+                           isMangledOf(top.name, "Software") ||
+                           isMangledOf(top.name, "valve") ||
+                           isMangledOf(top.name, "Steam") ||
+                           containsStructuralChain(top));
+        if (chainShell)
         {
-            // Unwrap a second store so its content becomes root siblings.
-            for (auto &k : top.kids)
-                if (!k.drop)
-                    rootExtra += foldJunk(k, "\t", eol, false);
-            top.drop = true;
+            drainChainShell(top, "\t", pid + "\t", eol, rootExtra, steamExtra);
+            continue;
+        }
+        if (isStoreContainer(top))
+        {
+            drainStoreWrapper(top, "\t", pid + "\t", eol, rootExtra, steamExtra);
             continue;
         }
         if (isSteamLevel(top))
@@ -1112,18 +1561,54 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
             rootExtra += foldJunk(top, "\t", eol, true);
         top.drop = true;
     }
-
-    // Steam-level settings that sit DIRECTLY at the roam's root (real files
-    // keep them under Steam, but corrupted ones can scatter them) belong in the
-    // added Steam. A stray root-level CloudEnabled leaf is dropped instead,
-    // because the generated Steam already provides the global switch. Marking
-    // the nodes dropped (rather than erasing them) keeps `software`/`valve`/
-    // `steamPtr` valid - renderSeg simply skips dropped children.
     for (auto &k : roam->kids)
     {
         if (k.drop)
             continue;
-        if (!k.isBlock && ieq(k.name, "CloudEnabled"))
+        bool chainKid = k.isBlock &&
+                        (ieq(k.name, "Software") || ieq(k.name, "valve") ||
+                         isDeletionOf(k.name, "Software") ||
+                         isDeletionOf(k.name, "valve") ||
+                         isDeletionOf(k.name, "Steam") ||
+                         isMangledOf(k.name, "Software") ||
+                         isMangledOf(k.name, "valve") ||
+                         isMangledOf(k.name, "Steam") ||
+                         containsStructuralChain(k));
+        if (chainKid && !containsRealSteam(k))
+        {
+            drainChainShell(k, "\t", pid + "\t", eol, rootExtra, steamExtra);
+            continue;
+        }
+        if (isStoreContainer(k))
+        {
+            vector<Seg> keptStore;
+            for (auto &ck : k.kids)
+            {
+                if (ck.drop)
+                    continue;
+                bool sh = ck.isBlock &&
+                          (ieq(ck.name, "Software") || ieq(ck.name, "valve") ||
+                           isDeletionOf(ck.name, "Software") ||
+                           isDeletionOf(ck.name, "valve") ||
+                           isDeletionOf(ck.name, "Steam"));
+                if (sh)
+                    drainChainShell(ck, "\t", pid + "\t", eol, rootExtra, steamExtra);
+                else if (isAppsBlock(ck))
+                    continue;
+                else if (isStoreContainer(ck))
+                {
+                    drainStoreWrapper(ck, "\t", pid + "\t", eol, rootExtra,
+                                      steamExtra);
+                }
+                else if (isSteamLevel(ck))
+                    steamExtra += foldJunk(ck, pid + "\t", eol, false);
+                else
+                    keptStore.push_back(std::move(ck));
+            }
+            k.kids = std::move(keptStore);
+            continue;
+        }
+        if (isCloudSwitchLeaf(k))
         {
             k.drop = true;
             continue;
@@ -1134,11 +1619,8 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
             k.drop = true;
         }
     }
-
     if (!steamExtra.empty())
     {
-        // Insert the folded Steam-level settings just before the added
-        // Steam block's closing brace so they land INSIDE the block.
         string close = pid + "}" + eol;
         string text = steamPtr->genText;
         size_t pos = text.rfind(close);
@@ -1154,38 +1636,91 @@ string addSteamToRoam(vector<Seg> &tops, const vector<string> &ids, const string
         raw.header = rootExtra;
         roam->kids.push_back(std::move(raw));
     }
-
+    hoistStoreRootKeys(*roam, eol);
+    for (auto &top : tops)
+        markEmptyContainers(top);
     string outText;
     for (const auto &top : tops)
         if (!top.drop)
             outText += renderSeg(top);
     return outText;
 }
-
-// Fold every piece of content under `node` that is NOT on the chain leading to
-// the canonical Steam into `out`, unwrapping any store wrappers found on that
-// chain. The canonical Steam's own children are handled separately.
-void foldNonChainContent(const Seg &node, const Seg *canonical, const string &eol, string &out)
+void foldNonChainContent(Seg &node, const Seg *canonical, const string &eol,
+                         string &out, string &steamExtra, const string &steamPad)
 {
     if (&node == canonical)
         return;
-    for (const auto &k : node.kids)
+    for (auto &k : node.kids)
     {
         if (k.drop)
+            continue;
+        if (!k.isBlock && k.name.empty() && rawContainsSteamBlock(k.header))
             continue;
         if (containsSeg(k, canonical))
         {
             if (k.isBlock && &k != canonical)
-                foldNonChainContent(k, canonical, eol, out);
+                foldNonChainContent(k, canonical, eol, out, steamExtra, steamPad);
+            continue;
+        }
+        if (k.isBlock && isAppIdName(k.name))
+            continue;
+        if (isCloudSwitchLeaf(k))
+            continue;
+        bool sh = k.isBlock &&
+                  (ieq(k.name, "Software") || ieq(k.name, "valve") ||
+                   isDeletionOf(k.name, "Software") || isDeletionOf(k.name, "valve") ||
+                   isDeletionOf(k.name, "Steam") || containsStructuralChain(k));
+        if (sh)
+        {
+            drainChainShell(k, "\t", steamPad, eol, out, steamExtra);
+            continue;
+        }
+        if (isStoreContainer(k))
+        {
+            drainStoreWrapper(k, "\t", steamPad, eol, out, steamExtra);
+            continue;
+        }
+        if (isSteamLevel(k))
+        {
+            steamExtra += foldJunk(k, steamPad, eol, false);
+            continue;
+        }
+        if (k.isBlock && containsRealSteam(k))
+        {
+            drainStoreWrapper(k, "\t", steamPad, eol, out, steamExtra);
             continue;
         }
         out += foldJunk(k, "\t", eol, false);
     }
 }
-
-// True if `roam` reaches the canonical Steam through a store block (a nested
-// UserLocalConfigStore / UserRoamingConfigStore) rather than directly through
-// the Software/valve chain.
+void renameSeg(Seg &s, const string &newName)
+{
+    size_t q1 = s.header.find('"');
+    if (q1 == string::npos)
+        return;
+    size_t q2 = s.header.find('"', q1 + 1);
+    if (q2 == string::npos)
+        return;
+    s.header = s.header.substr(0, q1 + 1) + newName + s.header.substr(q2);
+    s.name = newName;
+}
+void canonicalizeChainContainers(Seg &node, const Seg *canonical)
+{
+    if (&node == canonical)
+        return;
+    if (node.isBlock)
+    {
+        if (isMangledOf(node.name, "Software") && !ieq(node.name, "Software"))
+            renameSeg(node, "Software");
+        else if (isMangledOf(node.name, "valve") && !ieq(node.name, "valve"))
+            renameSeg(node, "valve");
+        else if (isMangledOf(node.name, "Steam") && !ieq(node.name, "Steam"))
+            renameSeg(node, "Steam");
+    }
+    for (auto &k : node.kids)
+        if (containsSeg(k, canonical))
+            canonicalizeChainContainers(k, canonical);
+}
 bool storeWrapperOnChain(const Seg &roam, const Seg *canonical)
 {
     for (const auto &k : roam.kids)
@@ -1193,69 +1728,176 @@ bool storeWrapperOnChain(const Seg &roam, const Seg *canonical)
             return true;
     return false;
 }
-
-// Build a fresh single-root UserRoamingConfigStore. When `canonical` is
-// non-null its preserved settings seed the Steam block; otherwise top-level
-// Steam-level settings (SurveyDate, friendsui, ...) are folded in as well.
-string buildRoamRoot(vector<Seg> &tops, Seg *canonical, const vector<string> &ids, const string &eol)
+bool isMangledChainContainer(const Seg &s)
+{
+    if (!s.isBlock)
+        return false;
+    if (ieq(s.name, "Software") || ieq(s.name, "valve") || ieq(s.name, "Steam"))
+        return false;
+    return isDeletionOf(s.name, "Software") || isDeletionOf(s.name, "valve") ||
+           isDeletionOf(s.name, "Steam") || isMangledOf(s.name, "Software") ||
+           isMangledOf(s.name, "valve") || isMangledOf(s.name, "Steam");
+}
+bool containsStructuralChain(const Seg &node)
+{
+    if (!node.isBlock)
+        return false;
+    if (ieq(node.name, "Steam") || isAppsBlock(node))
+        return true;
+    for (const auto &k : node.kids)
+        if (containsStructuralChain(k))
+            return true;
+    return false;
+}
+bool containsRealSteam(const Seg &node)
+{
+    if (node.isBlock && ieq(node.name, "Steam"))
+        return true;
+    for (const auto &k : node.kids)
+        if (containsRealSteam(k))
+            return true;
+    return false;
+}
+void drainStoreWrapper(Seg &node, const string &rootPad, const string &steamPad,
+                       const string &eol, string &rootExtra, string &steamExtra)
+{
+    for (auto &k : node.kids)
+    {
+        if (k.drop)
+            continue;
+        bool sh = k.isBlock &&
+                  (ieq(k.name, "Software") || ieq(k.name, "valve") ||
+                   isDeletionOf(k.name, "Software") || isDeletionOf(k.name, "valve") ||
+                   isDeletionOf(k.name, "Steam") || containsStructuralChain(k));
+        if (sh)
+            drainChainShell(k, rootPad, steamPad, eol, rootExtra, steamExtra);
+        else if (isAppsBlock(k))
+            continue;
+        else if (isStoreContainer(k))
+        {
+            drainStoreWrapper(k, rootPad, steamPad, eol, rootExtra, steamExtra);
+        }
+        else if (isSteamLevel(k))
+            steamExtra += foldJunk(k, steamPad, eol, false);
+        else
+            rootExtra += foldJunk(k, rootPad, eol, false);
+    }
+    node.drop = true;
+}
+void drainChainShell(Seg &node, const string &pad, const string &steamPad,
+                     const string &eol, string &rootExtra, string &steamExtra)
+{
+    for (auto &k : node.kids)
+    {
+        if (k.drop)
+            continue;
+        bool nestedShell = k.isBlock &&
+                           (isDeletionOf(k.name, "Software") ||
+                            isDeletionOf(k.name, "valve") ||
+                            isDeletionOf(k.name, "Steam") ||
+                            containsStructuralChain(k));
+        if (nestedShell)
+        {
+            drainChainShell(k, pad, steamPad, eol, rootExtra, steamExtra);
+            continue;
+        }
+        if (isStoreContainer(k))
+        {
+            drainStoreWrapper(k, pad, steamPad, eol, rootExtra, steamExtra);
+            continue;
+        }
+        if (isStoreRootLevel(k))
+            rootExtra += foldJunk(k, pad, eol, false);
+        else if (isSteamLevel(k))
+            steamExtra += foldJunk(k, steamPad, eol, false);
+    }
+    node.drop = true;
+}
+string buildRoamRoot(vector<Seg> &tops, Seg *canonical, vector<string> ids,
+                     const string &eol, const string &rootExtraPre = "")
 {
     string ci = "\t\t\t\t";
     string steamExtra;
+    string rootExtra;
+    string rootExtraEarly;
     if (canonical)
     {
         for (auto &k : canonical->kids)
         {
             if (k.drop)
                 continue;
-            if (ieq(k.name, "apps"))
+            if (!k.isBlock && k.name.empty() && rawContainsSteamBlock(k.header))
+                continue;
+            if (isAppsBlock(k))
                 continue;
             if (ieq(k.name, "CloudEnabled") && !k.isBlock)
                 continue;
+            if (isStoreRootLevel(k) ||
+                (!k.isBlock && k.name.empty() && rawHasRootKeys(k.header)))
+            {
+                rootExtraEarly += foldJunk(k, "\t", eol, false);
+                continue;
+            }
+            drainNestedApps(k, ids);
             steamExtra += foldJunk(k, ci, eol, false);
         }
     }
-
-    string rootExtra;
-    for (const auto &top : tops)
+    else
+    {
+        for (auto &top : tops)
+            recoverScattered(top, nullptr, false, ci, ids, steamExtra,
+                             rootExtra, eol);
+        for (auto &top : tops)
+            markStrayApps(top, nullptr, false);
+    }
+    for (auto &top : tops)
+        markEmptyContainers(top);
+    for (auto &top : tops)
     {
         if (top.drop)
             continue;
         if (canonical && containsSeg(top, canonical))
         {
-            // The store block that owns the canonical Steam. Preserve content
-            // OUTSIDE the chain leading to the Steam (JSClientStorage /
-            // WebStorage siblings, and any nested store wrapper's extra
-            // content), but don't re-emit the chain - the canonical Steam is
-            // seeded below.
-            foldNonChainContent(top, canonical, eol, rootExtra);
+            foldNonChainContent(top, canonical, eol, rootExtra, steamExtra, ci);
             continue;
         }
-        if (isStoreBlock(top))
+        if (isStoreContainer(top))
         {
-            // A second store (UserLocalConfigStore / a duplicate roam). Unwrap
-            // it so its content becomes root-level siblings instead of a nested
-            // store block inside the rebuilt root.
+            drainStoreWrapper(top, "\t", "\t\t\t\t", eol, rootExtra, steamExtra);
+            continue;
+        }
+        if (isAppsBlock(top))
+            continue;
+        bool chainShell =
+            ieq(top.name, "Software") || ieq(top.name, "valve") ||
+            isDeletionOf(top.name, "Software") || isDeletionOf(top.name, "valve") ||
+            isDeletionOf(top.name, "Steam");
+        if (chainShell)
+        {
             for (const auto &k : top.kids)
-                if (!k.drop)
+                if (!k.drop && isStoreRootLevel(k))
                     rootExtra += foldJunk(k, "\t", eol, false);
             continue;
         }
-        if (ieq(top.name, "apps"))
-            continue; // regenerated under Steam
-        if (canonical && ieq(top.name, "Software"))
-            continue; // stray container
         if (!top.isBlock && ieq(top.name, "CloudEnabled"))
-            continue; // canonical block provides the global switch
+            continue;
         if (isStrayBrace(top))
-            continue; // drop stray "}" braces from truncated files
+            continue;
         if (isSteamLevel(top))
             steamExtra += foldJunk(top, ci, eol, false);
+        else if (!top.isBlock && top.name.empty() && rawContainsSteamBlock(top.header))
+            continue;
+        else if (top.isBlock && containsRealSteam(top))
+            drainStoreWrapper(top, "\t", ci, eol, rootExtra, steamExtra);
         else if (top.isBlock || !top.name.empty())
             rootExtra += foldJunk(top, "\t", eol, false);
         else
             rootExtra += foldJunk(top, "\t", eol, true);
     }
-
+    stripUnbalancedBraceLines(steamExtra);
+    steamExtra = alignHeader(steamExtra, ci);
+    rootExtra = rootExtraPre + rootExtraEarly + rootExtra;
+    stripUnbalancedBraceLines(rootExtra);
     string full;
     full += "\"UserRoamingConfigStore\"" + eol;
     full += "{" + eol;
@@ -1268,16 +1910,514 @@ string buildRoamRoot(vector<Seg> &tops, Seg *canonical, const vector<string> &id
     full += ci + "\"CloudEnabled\"\t\t\"0\"" + eol;
     full += buildAppsText(ci, ids, eol);
     full += steamExtra;
-    full += "\t\t\t}" + eol; // Steam close
-    full += "\t\t}" + eol;   // valve close
-    full += "\t}" + eol;     // Software close
+    full += "\t\t\t}" + eol;
+    full += "\t\t}" + eol;
+    full += "\t}" + eol;
     full += rootExtra;
     full += "}" + eol;
     return full;
 }
-
+string repairBracelessFriends(const string &text, const string &eol)
+{
+    vector<string> lines = splitKeepingNewlines(text);
+    auto lineKey = [](const string &t) {
+        size_t q1 = t.find('"');
+        if (q1 == string::npos)
+            return string();
+        size_t q2 = t.find('"', q1 + 1);
+        if (q2 == string::npos)
+            return string();
+        return t.substr(q1 + 1, q2 - q1 - 1);
+    };
+    vector<size_t> shells, leaves;
+    for (size_t i = 0; i + 2 < lines.size(); ++i)
+    {
+        if (ieq(lineKey(trimS(lines[i])), "friendsui") &&
+            trimS(lines[i + 1]) == "{" && trimS(lines[i + 2]) == "}")
+            shells.push_back(i);
+        if (i + 1 < lines.size() && trimS(lines[i + 1]) == "}")
+        {
+            string t = trimS(lines[i]);
+            if (ieq(lineKey(t), "friendsui"))
+            {
+                size_t k1 = t.find('"');
+                size_t k2 = t.find('"', k1 + 1);
+                string after = t.substr(k2 + 1);
+                bool onlyWsBrace = true;
+                for (char c : after)
+                    if (c != ' ' && c != '\t' && c != '{')
+                    {
+                        onlyWsBrace = false;
+                        break;
+                    }
+                if (onlyWsBrace && after.find('{') != string::npos)
+                    shells.push_back(i);
+            }
+        }
+        if (ieq(lineKey(trimS(lines[i])), "FriendsUIJSON"))
+            leaves.push_back(i);
+    }
+    if (shells.empty() || leaves.empty())
+        return text;
+    vector<bool> usedLeaf(leaves.size(), false);
+    vector<string> out;
+    bool repaired = false;
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        bool isLeaf = false;
+        for (size_t li = 0; li < leaves.size(); ++li)
+            if (leaves[li] == i) { isLeaf = true; break; }
+        if (isLeaf)
+        {
+            bool droppedBefore = false;
+            for (size_t li = 0; li < leaves.size(); ++li)
+                if (leaves[li] == i && usedLeaf[li]) { droppedBefore = true; break; }
+            if (droppedBefore)
+                continue;
+        }
+        bool atShell = false;
+        size_t shellIdx = 0;
+        for (size_t si = 0; si < shells.size(); ++si)
+            if (shells[si] == i) { atShell = true; shellIdx = si; break; }
+        if (atShell)
+        {
+            string pad = indentOf(lines[i]);
+            bool glued = trimS(lines[i]).find('{') != string::npos;
+            size_t mate = lines.size();
+            size_t mateLi = 0;
+            for (size_t li = 0; li < leaves.size(); ++li)
+            {
+                if (usedLeaf[li]) continue;
+                if (indentOf(lines[leaves[li]]) != pad) continue;
+                mate = leaves[li]; mateLi = li; break;
+            }
+            if (mate != lines.size())
+            {
+                repaired = true;
+                usedLeaf[mateLi] = true;
+                string body = lines[mate];
+                string child = pad + "\t" +
+                               (body.size() > pad.size() ? body.substr(pad.size())
+                                                          : body);
+                out.push_back(pad + "\"friendsui\"" + eol);
+                out.push_back(pad + "{" + eol);
+                out.push_back(child + eol);
+                out.push_back(pad + "}" + eol);
+                i += glued ? 1 : 2;
+                continue;
+            }
+        }
+        out.push_back(lines[i]);
+    }
+    if (!repaired)
+        return text;
+    string s;
+    for (auto &line : out)
+        s += line;
+    size_t e = s.size();
+    while (e > 0 && (s[e - 1] == '\n' || s[e - 1] == '\r'))
+        --e;
+    return s.substr(0, e) + eol;
+}
+string stripAbsorbedStoreWrapper(const string &text, const string &eol)
+{
+    if (text.find("\"JSClientStorage\"") == string::npos &&
+        text.find("\"WebStorage\"") == string::npos)
+        return text;
+    vector<string> lines = splitKeepingNewlines(text);
+    size_t i = 0;
+    bool changed = false;
+    vector<string> out;
+    while (i < lines.size())
+    {
+        string t = trimS(lines[i]);
+        bool wrap = false;
+        if (t == "\"JSClientStorage\"" || t == "\"WebStorage\"" ||
+            t.rfind("\"JSClientStorage\"", 0) == 0 ||
+            t.rfind("\"WebStorage\"", 0) == 0 ||
+            t.rfind("\"jsclientstorage\"", 0) == 0 ||
+            t.rfind("\"webstorage\"", 0) == 0)
+            wrap = true;
+        if (!wrap || i + 1 >= lines.size() || trimS(lines[i + 1]) != "{")
+        {
+            out.push_back(lines[i]);
+            ++i;
+            continue;
+        }
+        string pad = indentOf(lines[i]);
+        size_t j = i + 2;
+        int depth = 1;
+        vector<string> kids;
+        bool hasReal = false, onlyJunk = true, malformed = false;
+        while (j < lines.size() && depth > 0)
+        {
+            string ct = trimS(lines[j]);
+            int d = 0;
+            if (ct == "{") ++d;
+            if (ct == "}") --d;
+            if (ct == "}" && indentOf(lines[j]) == pad && depth == 1)
+            {
+                depth += d;
+                break;
+            }
+            if (depth == 1 && ct != "{" && ct != "}")
+            {
+                string low = ct;
+                for (auto &c : low) c = (char)tolower((unsigned char)c);
+                bool isApps = ct == "\"apps\"";
+                size_t firstQ = ct.find('"');
+                size_t thirdQ = (firstQ == string::npos)
+                                    ? string::npos
+                                    : ct.find('"', firstQ + (size_t)1);
+                bool leaf = (thirdQ != string::npos) &&
+                            (ct.find('"', thirdQ + (size_t)1) != string::npos);
+                bool isSteamLeaf =
+                    leaf &&
+                    (ct.find("\"SurveyDate\"") == 0 ||
+                     ct.find("\"SurveyDateVersion\"") == 0 ||
+                     ct.find("\"StartMenuShortcutCheck\"") == 0 ||
+                     ct.find("\"DesktopShortcutCheck\"") == 0 ||
+                     ct.find("\"DeskopShortcutCheck\"") == 0 ||
+                     ct.find("\"CloudEnabled\"") == 0 ||
+                     ct.find("\"SteamDefaultDialog\"") == 0 ||
+                     ct.find("\"ShowScreenshotManager\"") == 0 ||
+                     ct.find("\"friendsui\"") == 0 || ct.find("\"FriendsUIJSON\"") == 0 ||
+                     ct.find("\"Steam\"") == 0 || ct.find("\"Software\"") == 0 ||
+                     ct.find("\"valve\"") == 0);
+                bool isSpotlight = low.find("spotlight") != string::npos ||
+                                   low.find("timeline") != string::npos ||
+                                   low.find("toast") != string::npos ||
+                                   isApps;
+                if (isApps || isSteamLeaf)
+                    kids.push_back(lines[j]);
+                else
+                    hasReal = true;
+            }
+            depth += d;
+            ++j;
+        }
+        if ((!malformed) && !hasReal && !kids.empty() && depth == 0)
+        {
+            changed = true;
+            i = j + 1;
+            continue;
+        }
+        out.push_back(lines[i]);
+        ++i;
+    }
+    if (!changed)
+        return text;
+    string s;
+    for (auto &line : out)
+        s += line;
+    size_t e = s.size();
+    while (e > 0 && (s[e - 1] == '\n' || s[e - 1] == '\r'))
+        --e;
+    return s.substr(0, e) + eol;
+}
+string dropBraceFragmentLeaves(const string &text, const string &eol)
+{
+    vector<string> lines = splitKeepingNewlines(text);
+    vector<string> out;
+    bool changed = false;
+    for (auto &line : lines)
+    {
+        size_t q1 = line.find('"');
+        if (q1 != string::npos)
+        {
+            size_t q2 = line.find('"', q1 + (size_t)1);
+            if (q2 != string::npos)
+            {
+                size_t q3 = line.find('"', q2 + (size_t)1);
+                bool hasValue = q3 != string::npos;
+                if (hasValue)
+                {
+                    string key = line.substr(q1 + (size_t)1, q2 - q1 - (size_t)1);
+                    bool bad = key.empty();
+                    for (char kc : key)
+                    {
+                        unsigned char u = (unsigned char)kc;
+                        if (!(isalnum(u) || kc == ' ' || kc == '_' || kc == '.' ||
+                              kc == '-' || kc == '\\'))
+                        {
+                            bad = true;
+                            break;
+                        }
+                    }
+                    if (bad || key.find("\\t") != string::npos ||
+                        key.find("\\n") != string::npos)
+                    {
+                        changed = true;
+                        continue;
+                    }
+                }
+            }
+        }
+        out.push_back(line);
+    }
+    if (!changed)
+        return text;
+    string s;
+    for (auto &line : out)
+        s += line;
+    size_t e = s.size();
+    while (e > 0 && (s[e - 1] == '\n' || s[e - 1] == '\r'))
+        --e;
+    return s.substr(0, e) + eol;
+}
+string relocateStoreRootSteamLeaves(const string &text, const string &eol)
+{
+    if (text.find("\"Steam\"") == string::npos)
+        return text;
+    vector<string> lines = splitKeepingNewlines(text);
+    size_t steamHead = lines.size();
+    for (size_t i = 0; i < lines.size(); ++i)
+        if (trimS(lines[i]) == "\"Steam\"")
+        {
+            steamHead = i;
+            break;
+        }
+    if (steamHead == lines.size())
+        return text;
+    string steamPad = indentOf(lines[steamHead]);
+    size_t steamClose = lines.size();
+    int depth = 0;
+    bool opened = false;
+    for (size_t i = steamHead + 1; i < lines.size(); ++i)
+    {
+        int d = 0;
+        for (char c : lines[i])
+        {
+            if (c == '{')
+                ++d;
+            else if (c == '}')
+                --d;
+        }
+        depth += d;
+        if (depth > 0)
+            opened = true;
+        if (opened && depth <= 0 && d < 0 &&
+            indentOf(lines[i]) == steamPad && trimS(lines[i]) == "}")
+        {
+            steamClose = i;
+            break;
+        }
+        if (depth < 0)
+            break;
+    }
+    if (steamClose == lines.size())
+        return text;
+    const char *steamLeafKeys[] = {
+        "SurveyDate", "SurveyDateVersion", "StartMenuShortcutCheck",
+        "DesktopShortcutCheck", "SteamDefaultDialog", "ShowScreenshotManager",
+        "FriendsUIJSON", "CloudEnabled"};
+    auto isSteamLeafKey = [&](const string &key) {
+        if (key.empty())
+            return false;
+        for (const char *k : steamLeafKeys)
+            if (ieq(key, k))
+                return true;
+        return false;
+    };
+    string childPad = steamPad + "\t";
+    vector<string> relocated;
+    vector<size_t> removeIdx;
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        if (i >= steamHead && i <= steamClose)
+            continue;
+        string t = trimS(lines[i]);
+        if (t.empty() || t[0] != '"')
+            continue;
+        size_t q1 = t.find('"');
+        size_t q2 = t.find('"', q1 + 1);
+        size_t q3 = (q2 == string::npos) ? string::npos : t.find('"', q2 + 1);
+        string key = (q1 != string::npos && q2 != string::npos && q2 > q1)
+                         ? t.substr(q1 + 1, q2 - q1 - 1) : "";
+        if (q3 != string::npos && isSteamLeafKey(key))
+        {
+            int lead = (int)indentOf(lines[i]).size();
+            string body = lines[i].substr((size_t)lead);
+            relocated.push_back(childPad + body);
+            removeIdx.push_back(i);
+        }
+    }
+    if (relocated.empty())
+        return text;
+    vector<string> out;
+    size_t ri = 0;
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        if (ri < removeIdx.size() && removeIdx[ri] == i)
+        {
+            ++ri;
+            continue;
+        }
+        out.push_back(lines[i]);
+        if (i == steamClose - 1)
+            for (const auto &r : relocated)
+                out.push_back(r);
+    }
+    string s;
+    for (auto &line : out)
+        s += line;
+    size_t e = s.size();
+    while (e > 0 && (s[e - 1] == '\n' || s[e - 1] == '\r'))
+        --e;
+    return s.substr(0, e) + eol;
+}
+string lineKey(const string &t)
+{
+    size_t q1 = t.find('"');
+    if (q1 == string::npos)
+        return "";
+    size_t q2 = t.find('"', q1 + 1);
+    if (q2 == string::npos || q2 == q1 + 1)
+        return "";
+    return t.substr(q1 + 1, q2 - q1 - 1);
+}
+size_t braceBalancedEnd(const vector<string> &lines, size_t start)
+{
+    int depth = 0;
+    bool opened = false;
+    for (size_t j = start; j < lines.size(); ++j)
+    {
+        bool inString = false;
+        for (size_t k = 0; k < lines[j].size(); ++k)
+        {
+            char c = lines[j][k];
+            if (inString)
+            {
+                if (c == '\\' && k + 1 < lines[j].size())
+                    ++k;
+                else if (c == '"')
+                    inString = false;
+                continue;
+            }
+            if (c == '"')
+                inString = true;
+            else if (c == '{')
+                ++depth;
+            else if (c == '}')
+                --depth;
+        }
+        if (depth > 0)
+            opened = true;
+        if (opened && depth <= 0 && j > start)
+            return j;
+        if (depth < 0)
+            return lines.size();
+    }
+    return lines.size();
+}
+string dropStrayAppBlocks(const string &text, const string &eol,
+                          const vector<string> &ids)
+{
+    vector<string> lines = splitKeepingNewlines(text);
+    auto isAllDigits = [](const string &k) {
+        if (k.empty())
+            return false;
+        for (char c : k)
+            if (c < '0' || c > '9')
+                return false;
+        return true;
+    };
+    auto isKnownId = [&](const string &quoted) {
+        for (const auto &id : ids)
+            if (id == quoted)
+                return true;
+        return false;
+    };
+    auto isMangledKnownId = [&](const string &key) {
+        for (const auto &id : ids)
+        {
+            string digits = id.substr(1, id.size() - 2);
+            if (isDeletionOf(key, digits) || isMangledOf(key, digits, 2))
+                return true;
+        }
+        return false;
+    };
+    size_t steamHead = lines.size(), steamEnd = lines.size();
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        if (trimS(lines[i]) == "\"Steam\"")
+        {
+            size_t e = braceBalancedEnd(lines, i);
+            if (e < lines.size())
+            {
+                steamHead = i;
+                steamEnd = e;
+            }
+            break;
+        }
+    }
+    if (steamEnd == lines.size())
+        return text;
+    string steamPad = indentOf(lines[steamHead]);
+    string appPad = steamPad + "\t";
+    size_t appsHead = lines.size(), appsEnd = lines.size();
+    for (size_t i = steamHead + 1; i < steamEnd; ++i)
+    {
+        if (trimS(lines[i]) == "\"apps\"" && indentOf(lines[i]) == appPad)
+        {
+            size_t e = braceBalancedEnd(lines, i);
+            if (e < lines.size())
+            {
+                appsHead = i;
+                appsEnd = e;
+            }
+            break;
+        }
+    }
+    if (appsHead == lines.size())
+        return text;
+    vector<char> drop(lines.size(), 0);
+    for (size_t i = 0; i < lines.size(); ++i)
+    {
+        if (i > appsHead && i < appsEnd)
+            continue;
+        string t = trimS(lines[i]);
+        string key = lineKey(t);
+        if (!isAllDigits(key))
+            continue;
+        string quoted = "\"" + key + "\"";
+        if (!isKnownId(quoted) && !isMangledKnownId(key))
+            continue;
+        if (t != quoted)
+            continue;
+        size_t next = i + 1;
+        while (next < lines.size() && trimS(lines[next]).empty())
+            ++next;
+        if (next >= lines.size() || trimS(lines[next]) != "{")
+            continue;
+        size_t j = braceBalancedEnd(lines, i);
+        if (j >= lines.size())
+            continue;
+        if (j > appsHead && i < appsEnd)
+            continue;
+        for (size_t k = i; k <= j; ++k)
+            drop[k] = 1;
+        i = j;
+    }
+    vector<string> out;
+    for (size_t i = 0; i < lines.size(); ++i)
+        if (!drop[i])
+            out.push_back(lines[i]);
+    string s;
+    for (auto &line : out)
+        s += line;
+    size_t e = s.size();
+    while (e > 0 && (s[e - 1] == '\n' || s[e - 1] == '\r'))
+        --e;
+    return s.substr(0, e) + eol;
+}
 bool writeOutput(const string &path, const string &text, size_t idCount)
 {
+    if (trimS(text).empty())
+    {
+        cerr << "Error: refusing to write empty output to " << path << endl;
+        return false;
+    }
     ofstream sharedConfigFile(path, ios::trunc | ios::binary);
     if (!sharedConfigFile)
     {
@@ -1286,35 +2426,40 @@ bool writeOutput(const string &path, const string &text, size_t idCount)
     }
     sharedConfigFile << text;
     sharedConfigFile.close();
-
     cout << ">Modified: " << path << endl;
     cout << ">Cloud disabled for " << idCount << " games" << endl;
     return true;
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// CloudDisabler
-// ---------------------------------------------------------------------------
+}
 CloudDisabler::CloudDisabler() {}
-
 bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const string &sharedConfigText, const string &acfIds)
 {
     string eol = detectEol(sharedConfigText);
     vector<string> physical = splitKeepingNewlines(sharedConfigText);
     vector<Tok> tokens = tokenize(physical);
-
     size_t idx = 0;
     vector<Seg> tops = parseChildren(tokens, idx, true);
-
-    // ---- Normalize in-place indentation to a clean tab scheme so wonky /
-    //      over-indented inputs produce clean output. Structural fixes below
-    //      (Steam merge, apps rebuild) build on top of this. ----
+    {
+        vector<Seg> flat;
+        for (auto &top : tops)
+            flattenReal(top, flat);
+        tops = std::move(flat);
+    }
     for (auto &top : tops)
         normalizeTree(top, "", eol);
-
-    // ---- Parse the ACF ids (already quoted, one per line). ----
+    {
+        vector<Seg> kept;
+        for (auto &top : tops)
+        {
+            if (isFragmentLeaf(top) && (!top.isBlock || !blockHasRecoverable(top)))
+                continue;
+            kept.push_back(std::move(top));
+        }
+        tops = std::move(kept);
+    }
+    for (auto &top : tops)
+        if (top.isBlock)
+            hoistStoreRootKeys(top, eol);
     vector<string> ids;
     {
         stringstream ss(acfIds);
@@ -1326,17 +2471,12 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                 ids.push_back(s);
         }
     }
-
-    // ---- Locate ALL real Steam blocks anywhere in the file. ----
     vector<Seg *> allSteams;
     for (auto &top : tops)
         collectSteamRecursive(top, allSteams);
-
     string outText;
-
     if (allSteams.empty())
     {
-        // No real Steam block anywhere. We must NOT destroy existing data.
         bool hasRoam = false;
         for (const auto &top : tops)
             if (top.isBlock && ieq(top.name, "UserRoamingConfigStore"))
@@ -1352,57 +2492,94 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
     else
     {
         Seg *canonical = pickCanonicalSteam(tops, allSteams);
-
-        // ---- Merge unique settings from stray Steam blocks into the canonical
-        //      one so nothing present in any Steam block is ever lost. ----
-        vector<Seg> mergedKids;
+        vector<string> allIds = ids;
+        string steamExtra;
+        string rootExtraPre;
+        for (auto &top : tops)
+            recoverScattered(top, canonical, false, indentOf(canonical->header) + "\t",
+                             allIds, steamExtra, rootExtraPre, eol);
+        allSteams.clear();
+        for (auto &top : tops)
+            collectSteamRecursive(top, allSteams);
+        {
+            bool canonicalAlive = false;
+            for (Seg *s : allSteams)
+                if (s == canonical)
+                {
+                    canonicalAlive = true;
+                    break;
+                }
+            if (!canonicalAlive)
+                canonical = pickCanonicalSteam(tops, allSteams);
+        }
         for (Seg *stray : allSteams)
         {
             if (stray == canonical)
                 continue;
-            for (auto &k : stray->kids)
+            if (stray->drop)
+                continue;
+            for (size_t sKi = 0; sKi < stray->kids.size(); ++sKi)
             {
-                // Only import meaningful settings, not the bits we regenerate.
-                if (ieq(k.name, "apps"))
+                Seg &k = stray->kids[sKi];
+                if (isAppsBlock(k))
                     continue;
                 if (ieq(k.name, "CloudEnabled") && !k.isBlock)
                     continue;
                 if (ieq(k.name, "Steam") && k.isBlock)
-                    continue; // nested Steam: flattened separately (it's in allSteams)
-                // Never move a container that holds the canonical Steam (e.g. a
-                // UserRoamingConfigStore/Software/valve chain wrapped inside a
-                // stray Steam). Moving it into the canonical's kids would make
-                // the canonical a descendant of itself, and renderSeg would
-                // then recurse forever on the cycle.
+                    continue;
                 if (containsSeg(k, canonical))
                     continue;
-                if (!hasKid(*canonical, k.name))
-                    mergedKids.push_back(std::move(k));
+                bool sh = k.isBlock &&
+                          (ieq(k.name, "Software") || ieq(k.name, "valve") ||
+                           isDeletionOf(k.name, "Software") ||
+                           isDeletionOf(k.name, "valve") ||
+                           isDeletionOf(k.name, "Steam"));
+                if (sh)
+                {
+                    drainChainShell(k, "\t", indentOf(canonical->header) + "\t",
+                                    eol, rootExtraPre, steamExtra);
+                    continue;
+                }
+                if (isStoreContainer(k) || isStoreRootLevel(k))
+                {
+                    if (chainDescendant(k) || containsRealSteam(k) || isStoreBlock(k))
+                    {
+                        drainStoreWrapper(k, "\t",
+                                          indentOf(canonical->header) + "\t",
+                                          eol, rootExtraPre, steamExtra);
+                        continue;
+                    }
+                    rootExtraPre += foldJunk(k, "\t", eol, false);
+                    continue;
+                }
+                if (k.name.empty() || !hasKid(*canonical, k.name))
+                {
+                    steamExtra += foldJunk(k, indentOf(canonical->header) + "\t",
+                                           eol, false);
+                    k.drop = true;
+                }
             }
         }
-
-        // ---- Drop stray Steam blocks (their data was merged above). ----
         for (Seg *stray : allSteams)
             if (stray != canonical)
                 stray->drop = true;
-
-        // ---- Drop stray "apps" blocks not inside the canonical Steam. ----
         for (auto &top : tops)
             markStrayApps(top, canonical, false);
-
-        for (auto &m : mergedKids)
-            canonical->kids.push_back(std::move(m));
-
-        // ---- Transform the canonical Steam: force the outer CloudEnabled to
-        //      "0" and rebuild the per-game apps block. ----
-        transformCanonical(*canonical, ids, eol);
-
-        // ---- Prune container blocks (valve/Software) that became empty. ----
+        transformCanonical(*canonical, allIds, eol);
+        if (!steamExtra.empty())
+        {
+            dedupeSteamExtras(steamExtra, *canonical);
+            stripUnbalancedBraceLines(steamExtra);
+            steamExtra = alignHeader(steamExtra, indentOf(canonical->header) + "\t");
+            if (!steamExtra.empty())
+            {
+                Seg raw;
+                raw.header = steamExtra;
+                canonical->kids.push_back(std::move(raw));
+            }
+        }
         for (auto &top : tops)
             markEmptyContainers(top);
-
-        // ---- Render. If a UserRoamingConfigStore holds the canonical Steam,
-        //      keep the existing structure verbatim; otherwise build one. ----
         bool canonicalUnderRoam = false;
         for (const auto &top : tops)
             if (top.isBlock && ieq(top.name, "UserRoamingConfigStore") && containsSeg(top, canonical))
@@ -1410,9 +2587,6 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                 canonicalUnderRoam = true;
                 break;
             }
-        // A Steam wrapped in ANOTHER store block (roam > local > Software >
-        // valve > Steam) must not be rendered verbatim: that leaves a nested
-        // store and no Steam reachable from the roam root. Rebuild instead.
         if (canonicalUnderRoam)
         {
             for (const auto &top : tops)
@@ -1425,7 +2599,6 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
         }
         if (canonicalUnderRoam)
         {
-            // ---- Fold stray top-level content into the canonical roam. ----
             Seg *canonicalRoam = nullptr;
             for (auto &top : tops)
                 if (top.isBlock && ieq(top.name, "UserRoamingConfigStore") && containsSeg(top, canonical))
@@ -1433,67 +2606,116 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
                     canonicalRoam = &top;
                     break;
                 }
-
-            string steamExtra; // steam-level settings folded into Steam
-            string rootExtra;  // root-level content folded into the roam
-            // Steam-level settings must land at the canonical Steam's OWN child
-            // indent, which is not always the standard 4 tabs (a nested roam or
-            // a one-line input can put Steam at a shallower or deeper level).
+            string steamExtra;
+            string rootExtra;
             string steamChildIndent = indentOf(canonical->header) + "\t";
             for (auto &top : tops)
             {
                 if (top.drop)
                     continue;
                 if (&top == canonicalRoam)
-                    continue; // rendered below
-                if (ieq(top.name, "Software"))
+                    continue;
+                bool chainShell =
+                    ieq(top.name, "Software") || ieq(top.name, "valve") ||
+                    isDeletionOf(top.name, "Software") || isDeletionOf(top.name, "valve") ||
+                    isDeletionOf(top.name, "Steam");
+                if (chainShell)
                 {
-                    top.drop = true; // stray duplicate block; data was merged above
+                    drainChainShell(top, "\t", steamChildIndent, eol, rootExtra, steamExtra);
                     continue;
                 }
                 if (!top.isBlock && ieq(top.name, "CloudEnabled"))
                 {
-                    top.drop = true; // canonical block provides the global switch
+                    top.drop = true;
                     continue;
                 }
                 if (isStrayBrace(top))
                 {
-                    top.drop = true; // stray "}" braces from truncated files
+                    top.drop = true;
                     continue;
                 }
-                if (isStoreBlock(top))
+                if (isStoreContainer(top))
                 {
-                    // A second store (duplicate roam or a UserLocalConfigStore):
-                    // unwrap it so its content becomes root-level siblings of the
-                    // canonical roam rather than a nested store block.
-                    for (auto &k : top.kids)
-                        if (!k.drop)
-                            rootExtra += foldJunk(k, "\t", eol, false);
-                    top.drop = true;
+                    drainStoreWrapper(top, "\t", steamChildIndent, eol, rootExtra,
+                                      steamExtra);
                     continue;
                 }
                 if (isSteamLevel(top))
                     steamExtra += foldJunk(top, steamChildIndent, eol, false);
+                else if (!top.isBlock && top.name.empty() && rawContainsSteamBlock(top.header))
+                    top.drop = true;
+                else if (top.isBlock && containsRealSteam(top))
+                    drainStoreWrapper(top, "\t", steamChildIndent, eol, rootExtra, steamExtra);
                 else if (top.isBlock || !top.name.empty())
                     rootExtra += foldJunk(top, "\t", eol, false);
                 else
                     rootExtra += foldJunk(top, "\t", eol, true);
                 top.drop = true;
             }
-
+            for (auto &k : canonicalRoam->kids)
+            {
+                if (k.drop || !isStoreContainer(k))
+                    continue;
+                if (containsSeg(k, canonical))
+                    continue;
+                vector<Seg> keptStore;
+                for (auto &ck : k.kids)
+                {
+                    if (ck.drop)
+                        continue;
+                    bool sh = ck.isBlock &&
+                              (ieq(ck.name, "Software") || ieq(ck.name, "valve") ||
+                               isDeletionOf(ck.name, "Software") ||
+                               isDeletionOf(ck.name, "valve") ||
+                               isDeletionOf(ck.name, "Steam") ||
+                               containsStructuralChain(ck));
+                    if (sh)
+                    {
+                        drainChainShell(ck, "\t", steamChildIndent, eol, rootExtra,
+                                        steamExtra);
+                        continue;
+                    }
+                    if (isAppsBlock(ck))
+                        continue;
+                    if (isStoreContainer(ck))
+                    {
+                        drainStoreWrapper(ck, "\t", steamChildIndent, eol, rootExtra,
+                                          steamExtra);
+                        continue;
+                    }
+                    if (isSteamLevel(ck))
+                    {
+                        steamExtra += foldJunk(ck, steamChildIndent, eol, false);
+                        continue;
+                    }
+                    keptStore.push_back(std::move(ck));
+                }
+                k.kids = std::move(keptStore);
+            }
+            canonicalizeChainContainers(*canonicalRoam, canonical);
             if (!steamExtra.empty())
             {
-                Seg raw;
-                raw.header = steamExtra;
-                canonical->kids.push_back(std::move(raw));
+                dedupeSteamExtras(steamExtra, *canonical);
+                stripUnbalancedBraceLines(steamExtra);
+                steamExtra = alignHeader(steamExtra, steamChildIndent);
+                if (!steamExtra.empty())
+                {
+                    Seg raw;
+                    raw.header = steamExtra;
+                    canonical->kids.push_back(std::move(raw));
+                }
             }
-            if (!rootExtra.empty())
+            if (!rootExtra.empty() || !rootExtraPre.empty())
             {
-                Seg raw;
-                raw.header = rootExtra;
-                canonicalRoam->kids.push_back(std::move(raw));
+                string rootRaw = rootExtraPre + rootExtra;
+                stripUnbalancedBraceLines(rootRaw);
+                if (!rootRaw.empty())
+                {
+                    Seg raw;
+                    raw.header = rootRaw;
+                    canonicalRoam->kids.push_back(std::move(raw));
+                }
             }
-
             for (const auto &top : tops)
             {
                 if (top.drop)
@@ -1502,14 +2724,39 @@ bool CloudDisabler::replaceAppsBlock(const string &sharedConfigPath, const strin
             }
         }
         else
-        {
-            outText = buildRoamRoot(tops, canonical, ids, eol);
-        }
+            outText = buildRoamRoot(tops, canonical, allIds, eol, rootExtraPre);
     }
-
+    outText = repairBracelessFriends(outText, eol);
+    outText = stripAbsorbedStoreWrapper(outText, eol);
+    outText = dropBraceFragmentLeaves(outText, eol);
+    outText = relocateStoreRootSteamLeaves(outText, eol);
+    outText = dropStrayAppBlocks(outText, eol, ids);
+    outText = stripAbsorbedStoreWrapper(outText, eol);
+    outText = dropBraceFragmentLeaves(outText, eol);
+    outText = relocateStoreRootSteamLeaves(outText, eol);
+    outText = dropStrayAppBlocks(outText, eol, ids);
+    if (trimS(outText).empty())
+        outText = buildRoamRoot(tops, nullptr, ids, eol);
+    else
+    {
+        vector<string> physical2 = splitKeepingNewlines(outText);
+        vector<Tok> tokens2 = tokenize(physical2);
+        size_t idx2 = 0;
+        vector<Seg> tops2 = parseChildren(tokens2, idx2, true);
+        bool ok = tops2.size() == 1 && tops2[0].isBlock &&
+                  isStoreBlock(tops2[0]);
+        if (ok)
+        {
+            vector<Seg *> steams2;
+            collectSteamRecursive(tops2[0], steams2);
+            if (steams2.size() != 1)
+                ok = false;
+        }
+        if (!ok)
+            outText = buildRoamRoot(tops, nullptr, ids, eol);
+    }
     return writeOutput(sharedConfigPath, outText, ids.size());
 }
-
 bool CloudDisabler::iterateSharedConfig(const string &userDataPath, const string &acfIds)
 {
     FileUtility fileUtility;
@@ -1519,7 +2766,6 @@ bool CloudDisabler::iterateSharedConfig(const string &userDataPath, const string
         {
             string steamID = entry.path().string();
             replace(steamID.begin(), steamID.end(), '\\', '/');
-
             string remotePath = steamID + "/7/remote";
             if (filesystem::exists(remotePath))
             {

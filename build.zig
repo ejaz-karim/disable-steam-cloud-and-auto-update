@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
         exe_mod.addIncludePath(b.path("include"));
 
         const exe = b.addExecutable(.{
-            .name = "Steam NoCloud NoUpdates",
+            .name = "Steam Tweak Tool",
             .root_module = exe_mod,
         });
 

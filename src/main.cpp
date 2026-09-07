@@ -3,17 +3,18 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#include "steam-nocloud-noupdates/cloud_disable.hpp"
-#include "steam-nocloud-noupdates/autoupdate_disable.hpp"
-#include "steam-nocloud-noupdates/utility.hpp"
+#include "steam-tweak-tool/cloud_disable.hpp"
+#include "steam-tweak-tool/autoupdate_disable.hpp"
+#include "steam-tweak-tool/utility.hpp"
 
 using namespace std;
 
 int main()
 {
 #ifdef _WIN32
-    SetConsoleTitleA("Steam NoCloud NoUpdates");
+    SetConsoleTitleW(L"Steam Tweak Tool");
 #endif
+
 
     try
     {

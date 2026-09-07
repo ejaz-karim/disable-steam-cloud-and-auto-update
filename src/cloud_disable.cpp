@@ -6,8 +6,8 @@
 #include <cstring>
 #include <filesystem>
 #include <vector>
-#include "steam-nocloud-noupdates/cloud_disable.hpp"
-#include "steam-nocloud-noupdates/utility.hpp"
+#include "steam-tweak-tool/cloud_disable.hpp"
+#include "steam-tweak-tool/utility.hpp"
 using namespace std;
 namespace
 {
